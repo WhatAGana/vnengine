@@ -67,7 +67,7 @@
 - Create: `Assets/Scripts/VNEngine/Core/VNEngine.Core.asmdef`
 - Create: `Assets/Scripts/VNEngine/Unity/VNEngine.Unity.asmdef`
 - Create: `Assets/Tests/Editor/VNEngine.Tests.asmdef`
-- Create: `Assets/Scripts/VNEngine/Core/Values/VnValue.cs` (temporary marker type)
+- Create: `Assets/Scripts/VNEngine/Core/VnEngineInfo.cs` (permanent public marker type)
 - Create: `Assets/Tests/Editor/SmokeTest.cs`
 
 **Interfaces:**
@@ -140,14 +140,18 @@
 }
 ```
 
-- [ ] **Step 4: Create a temporary marker type so the core assembly is non-empty**
+- [ ] **Step 4: Create a permanent public marker type so the core assembly is non-empty and cross-assembly referencing is verified**
 
-`Assets/Scripts/VNEngine/Core/Values/VnValue.cs`:
+`Assets/Scripts/VNEngine/Core/VnEngineInfo.cs`:
 ```csharp
 namespace VNEngine
 {
-    // Temporary marker, replaced in Task 2.
-    internal static class VnEngineMarker { public const int Version = 0; }
+    // Permanent, referenced by the smoke test to prove the test assembly can
+    // see public Core types across the assembly boundary.
+    public static class VnEngineInfo
+    {
+        public const string Name = "VNEngine.Core";
+    }
 }
 ```
 
@@ -164,7 +168,7 @@ namespace VNEngine.Tests
         [Test]
         public void CoreAssemblyIsReferencable()
         {
-            Assert.AreEqual(0, VNEngine.VnEngineMarker.Version);
+            Assert.AreEqual("VNEngine.Core", VNEngine.VnEngineInfo.Name);
         }
     }
 }
@@ -186,7 +190,7 @@ git commit -m "feat(vnengine): scaffold Core/Unity/Test assemblies + smoke test"
 ## Task 2: VnValue
 
 **Files:**
-- Modify (replace): `Assets/Scripts/VNEngine/Core/Values/VnValue.cs`
+- Create: `Assets/Scripts/VNEngine/Core/Values/VnValue.cs`
 - Create: `Assets/Tests/Editor/VnValueTests.cs`
 
 **Interfaces:**
@@ -240,7 +244,7 @@ Run tests filter `VNEngine.Tests.VnValueTests`. Expected: compile error / fail (
 
 - [ ] **Step 3: Implement VnValue**
 
-Replace `Assets/Scripts/VNEngine/Core/Values/VnValue.cs`:
+Create `Assets/Scripts/VNEngine/Core/Values/VnValue.cs`:
 ```csharp
 namespace VNEngine
 {
