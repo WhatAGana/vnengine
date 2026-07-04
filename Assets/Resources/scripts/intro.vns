@@ -1,0 +1,24 @@
+# 요르 데이트 시나리오 — dialogues.json 의 DSL 이식본
+character 요르 name:"요르"
+character 나레이션 name:"나레이션"
+
+label start:
+    show 요르 left
+    요르 "주말에 뭐 할래?"
+    menu:
+        "같이 영화 보자":
+            $ 요르 += 30
+            jump after
+        "귀찮은데 그냥 집에":
+            $ 요르 -= 10
+            jump after
+
+label after:
+    나레이션 "...그렇게 시간이 흘렀다."
+    if 요르 >= 30:
+        요르 "너랑 있으면 즐거워. 우리 사귈래?"
+    elif 요르 >= 0:
+        요르 "그냥 친구로 지내자."
+    else:
+        요르 "...우리 안 맞는 것 같아."
+    return

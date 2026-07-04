@@ -216,7 +216,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 461649810}
-  - component: {fileID: 461649809}
+  - component: {fileID: 461649813}
+  - component: {fileID: 461649812}
+  - component: {fileID: 461649811}
   m_Layer: 0
   m_Name: DialogueManager
   m_TagString: Untagged
@@ -224,38 +226,6 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &461649809
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 461649808}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d5b011d312c349842a75a6848ec365c2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dialoguePanel: {fileID: 1149820246}
-  speakerText: {fileID: 1600807129}
-  dialogueText: {fileID: 786625903}
-  leftSlot: {fileID: 1563973842}
-  centerSlot: {fileID: 1011023344}
-  rightSlot: {fileID: 1611194002}
-  characters:
-  - name: "\uC694\uB974"
-    sprite: {fileID: 21300000, guid: e024baaeef5fec641aa4d7846be601ae, type: 3}
-  - name: "\uB809\uB3CC"
-    sprite: {fileID: 21300000, guid: 42b829a9492d54d4aa92efbbd562bff5, type: 3}
-  characterSortingOrder: 5
-  characterScale: 0.35
-  choiceButtonPrefab: {fileID: 6450529796512230080, guid: 2c12b9302c548ac41b1bca4cea745b2f, type: 3}
-  choicesContainer: {fileID: 1181006477}
-  debugShowVariables: 1
-  debugVariablesText: {fileID: 1139682532}
-  jsonFileName: dialogues.json
-  typingSpeed: 0.04
-  hidePanelOnEnd: 0
 --- !u!4 &461649810
 Transform:
   m_ObjectHideFlags: 0
@@ -271,6 +241,63 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &461649811
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 461649808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 952aefb7ee9986a44915a4471bd7d933, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialogueView: {fileID: 461649812}
+  stageView: {fileID: 461649813}
+  scriptsResourcesFolder: scripts
+  entryLabel: start
+  randomSeed: 12345
+--- !u!114 &461649812
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 461649808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5276fcdb924f2ff46af92545414d516b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dialoguePanel: {fileID: 1149820246}
+  speakerText: {fileID: 1600807129}
+  dialogueText: {fileID: 786625903}
+  choiceButtonPrefab: {fileID: 6450529796512230080, guid: 2c12b9302c548ac41b1bca4cea745b2f, type: 3}
+  choicesContainer: {fileID: 1181006477}
+  typingSpeed: 0.04
+--- !u!114 &461649813
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 461649808}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8206a85ceb605ab4dad5c430a59c099d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  leftSlot: {fileID: 1563973842}
+  centerSlot: {fileID: 1011023344}
+  rightSlot: {fileID: 1611194002}
+  background: {fileID: 473993617}
+  backgrounds: []
+  characters:
+  - name: "\uC694\uB974"
+    sprite: {fileID: 21300000, guid: e024baaeef5fec641aa4d7846be601ae, type: 3}
+  characterSortingOrder: 5
+  characterScale: 0.35
 --- !u!1 &473993616
 GameObject:
   m_ObjectHideFlags: 0
