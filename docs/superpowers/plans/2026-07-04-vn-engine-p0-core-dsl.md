@@ -14,7 +14,8 @@
 - Core assembly `VNEngine.Core` MUST have **no engine references** (`"noEngineReferences": true`, `"autoReferenced": true`). It may not use any `UnityEngine.*` type. Randomness comes from the injected `IRandom`, never `UnityEngine.Random`. Errors are thrown as `VnException`, never `Debug.Log`.
 - Variables are two types only in P0: **int** and **bool**. No float, no string variables. Integer division truncates toward zero (`7 / 2 == 3`).
 - Undefined variables read as `VnValue.Int(0)`.
-- Scripts live in `Assets/StreamingAssets/scripts/` with extension `.vns`, UTF-8, space indentation only (tabs in indentation are a parse error).
+- Scripts are authored as `.vns` files (UTF-8, space indentation only — tabs in indentation are a parse error) and placed in `Assets/Resources/scripts/`. A custom `ScriptedImporter` imports `.vns` as `TextAsset`; the runtime loads them with `Resources.LoadAll<TextAsset>("scripts")`. **Do NOT use `System.IO.File`/`Directory.GetFiles` on `StreamingAssets` for script loading** — that path fails on Android/WebGL. This is the mobile-support requirement (target platforms: Android, iOS, Windows/Mac desktop).
+- Touch input works via `Input.GetMouseButtonDown(0)` (Unity maps the first touch to mouse button 0); no separate touch code is needed for P0.
 - Default entry label is `start`, overridable via a `VNRunner` inspector field.
 - After any script edit that adds/removes C# types, verify compilation via the UnityMCP `read_console` tool before using new types. Poll `editor_state.isCompiling` until false.
 - Test runner: run EditMode tests via UnityMCP `run_tests` (mode `EditMode`). A task's tests must be green before its commit.
@@ -48,7 +49,12 @@
 - `VNEngine.Unity.asmdef`.
 - `Presentation/StageViewUnity.cs` — `IStageView` over sprite slots + background.
 - `Presentation/DialogueViewUnity.cs` — `IDialogueView` over TMP typewriter + choice buttons.
-- `VNRunner.cs` — coroutine host; loads scripts, compiles, ticks interpreter, routes click input.
+- `VnScriptLoader.cs` — loads `.vns` `TextAsset`s from `Resources/scripts` and compiles them (mobile-safe, no `File.IO`).
+- `VNRunner.cs` — coroutine host; loads scripts, compiles, ticks interpreter, routes click/tap input.
+
+**Editor layer** — `Assets/Scripts/VNEngine/Editor/` (asmdef `VNEngine.Editor`, Editor-only):
+- `VNEngine.Editor.asmdef`.
+- `VnsImporter.cs` — `ScriptedImporter` that imports `.vns` files as `TextAsset` (so they load via `Resources.LoadAll<TextAsset>` on every platform).
 
 **Tests** — `Assets/Tests/Editor/` (asmdef `VNEngine.Tests`, refs `VNEngine.Core` + test framework):
 - `VNEngine.Tests.asmdef`.
@@ -56,7 +62,7 @@
 - `VnValueTests.cs`, `GameStateTests.cs`, `ExprParserTests.cs`, `ExprEvalTests.cs`, `LineReaderTests.cs`, `ParserTests.cs`, `CompilerTests.cs`, `InterpreterTests.cs`, `MenuInterpreterTests.cs`.
 
 **Content / migration:**
-- `Assets/StreamingAssets/scripts/intro.vns` — DSL port of `dialogues.json`.
+- `Assets/Resources/scripts/intro.vns` — DSL port of `dialogues.json` (imported as `TextAsset` by `VnsImporter`).
 - Removed at end: `Assets/Scripts/DialogueManager.cs`, `Assets/StreamingAssets/dialogues.json`.
 
 ---
@@ -2923,47 +2929,94 @@ git commit -m "feat(vnengine): DialogueViewUnity (TMP typewriter + choice button
 
 ---
 
-## Task 13: VnScriptLoader + VNRunner (coroutine host)
+## Task 13: `.vns` importer + VnScriptLoader + VNRunner (coroutine host)
 
 **Files:**
+- Create: `Assets/Scripts/VNEngine/Editor/VNEngine.Editor.asmdef`
+- Create: `Assets/Scripts/VNEngine/Editor/VnsImporter.cs`
 - Create: `Assets/Scripts/VNEngine/Unity/VnScriptLoader.cs`
 - Create: `Assets/Scripts/VNEngine/Unity/VNRunner.cs`
 
 **Interfaces:**
 - Consumes: `LineReader`, `Parser`, `Compiler`, `VnProgram`, `Interpreter`, `GameState`, `SeededRandom`, `VnException`, `DialogueViewUnity`, `StageViewUnity`.
 - Produces:
-  - `static class VNEngine.Unity.VnScriptLoader { VnProgram LoadAndCompile(string folderAbsolutePath) }` — reads every `*.vns` under the folder (recursive), sorted by ordinal filename, parses each, and compiles them together. Throws `VnException` on missing folder / no files / parse or compile error.
-  - `class VNEngine.Unity.VNRunner : MonoBehaviour` — inspector fields `DialogueViewUnity dialogueView`, `StageViewUnity stageView`, `string scriptsSubfolder` (default `"scripts"`), `string entryLabel` (default `"start"`), `int randomSeed` (default 12345). On `Start()` it loads+compiles `StreamingAssets/<scriptsSubfolder>`, builds a `GameState`+`Interpreter`, and ticks once per frame in a coroutine until finished. All `VnException`s are caught and logged via `Debug.LogError` (never crash the play session).
+  - `VnsImporter : ScriptedImporter` — registered for extension `vns`; imports each `.vns` file as a `TextAsset` whose `.text` is the file contents. This lets `.vns` files under `Assets/Resources/scripts/` be loaded on every platform (editor/desktop/Android/iOS/WebGL).
+  - `static class VNEngine.Unity.VnScriptLoader { VnProgram LoadAndCompile(string resourcesSubfolder) }` — loads every `TextAsset` under `Resources/<resourcesSubfolder>` via `Resources.LoadAll<TextAsset>`, sorts by ordinal `name`, parses each (using `name` as the file label), and compiles them together. Throws `VnException` when no `.vns` TextAssets are found or on parse/compile error. **No `System.IO`/`Directory` — mobile-safe.**
+  - `class VNEngine.Unity.VNRunner : MonoBehaviour` — inspector fields `DialogueViewUnity dialogueView`, `StageViewUnity stageView`, `string scriptsResourcesFolder` (default `"scripts"`), `string entryLabel` (default `"start"`), `int randomSeed` (default 12345). On `Start()` it loads+compiles `Resources/<scriptsResourcesFolder>`, builds a `GameState`+`Interpreter`, and ticks once per frame in a coroutine until finished. All `VnException`s are caught and logged via `Debug.LogError` (never crash the play session).
 
-- [ ] **Step 1: Implement VnScriptLoader**
+- [ ] **Step 1: Create the Editor assembly for the importer**
+
+`Assets/Scripts/VNEngine/Editor/VNEngine.Editor.asmdef`:
+```json
+{
+    "name": "VNEngine.Editor",
+    "rootNamespace": "VNEngine.Editor",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
+```
+
+- [ ] **Step 2: Implement the `.vns` ScriptedImporter**
+
+`Assets/Scripts/VNEngine/Editor/VnsImporter.cs`:
+```csharp
+using System.IO;
+using UnityEditor.AssetImporters;
+using UnityEngine;
+
+namespace VNEngine.Editor
+{
+    // Imports *.vns files as TextAsset so they can be placed under
+    // Assets/Resources/scripts and loaded with Resources.LoadAll<TextAsset>
+    // on every platform (Android/iOS included).
+    [ScriptedImporter(version: 1, ext: "vns")]
+    public class VnsImporter : ScriptedImporter
+    {
+        public override void OnImportAsset(AssetImportContext ctx)
+        {
+            string text = File.ReadAllText(ctx.assetPath);
+            var asset = new TextAsset(text);
+            ctx.AddObjectToAsset("main", asset);
+            ctx.SetMainObject(asset);
+        }
+    }
+}
+```
+
+- [ ] **Step 3: Compile check (importer)**
+
+Refresh Unity, poll `mcpforunity://editor/state` until `isCompiling` false, `read_console` (types: error). Expected: zero errors. Any existing `.vns` files now show a TextAsset icon in the Project window.
+
+- [ ] **Step 4: Implement VnScriptLoader**
 
 `Assets/Scripts/VNEngine/Unity/VnScriptLoader.cs`:
 ```csharp
 using System;
 using System.Collections.Generic;
-using System.IO;
+using UnityEngine;
 
 namespace VNEngine.Unity
 {
     public static class VnScriptLoader
     {
-        public static VnProgram LoadAndCompile(string folderAbsolutePath)
+        // resourcesSubfolder is relative to any Resources/ folder, e.g. "scripts"
+        // loads Assets/Resources/scripts/*.vns (imported as TextAssets).
+        public static VnProgram LoadAndCompile(string resourcesSubfolder)
         {
-            if (!Directory.Exists(folderAbsolutePath))
-                throw new VnException($"scripts folder not found: {folderAbsolutePath}");
+            TextAsset[] assets = Resources.LoadAll<TextAsset>(resourcesSubfolder);
+            if (assets == null || assets.Length == 0)
+                throw new VnException($"no .vns TextAssets found under Resources/{resourcesSubfolder}");
 
-            string[] files = Directory.GetFiles(folderAbsolutePath, "*.vns", SearchOption.AllDirectories);
-            Array.Sort(files, StringComparer.Ordinal);
+            Array.Sort(assets, (a, b) => string.CompareOrdinal(a.name, b.name));
 
             var parsed = new List<List<Command>>();
-            foreach (var f in files)
-            {
-                string text = File.ReadAllText(f);
-                string name = Path.GetFileName(f);
-                parsed.Add(Parser.Parse(LineReader.Read(text, name)));
-            }
-            if (parsed.Count == 0)
-                throw new VnException($"no .vns files found in {folderAbsolutePath}");
+            foreach (var ta in assets)
+                parsed.Add(Parser.Parse(LineReader.Read(ta.text, ta.name)));
 
             return Compiler.Compile(parsed);
         }
@@ -2971,12 +3024,11 @@ namespace VNEngine.Unity
 }
 ```
 
-- [ ] **Step 2: Implement VNRunner**
+- [ ] **Step 5: Implement VNRunner**
 
 `Assets/Scripts/VNEngine/Unity/VNRunner.cs`:
 ```csharp
 using System.Collections;
-using System.IO;
 using UnityEngine;
 
 namespace VNEngine.Unity
@@ -2988,8 +3040,8 @@ namespace VNEngine.Unity
         public StageViewUnity stageView;
 
         [Header("Script")]
-        [Tooltip("Folder under StreamingAssets containing .vns files")]
-        public string scriptsSubfolder = "scripts";
+        [Tooltip("Subfolder inside a Resources/ folder that holds the .vns TextAssets")]
+        public string scriptsResourcesFolder = "scripts";
         public string entryLabel = "start";
 
         [Tooltip("Seed for random(); fixed for reproducible runs")]
@@ -3009,8 +3061,7 @@ namespace VNEngine.Unity
             string loadError = null;
             try
             {
-                string folder = Path.Combine(Application.streamingAssetsPath, scriptsSubfolder);
-                program = VnScriptLoader.LoadAndCompile(folder);
+                program = VnScriptLoader.LoadAndCompile(scriptsResourcesFolder);
             }
             catch (VnException e) { loadError = e.Message; }
 
@@ -3050,14 +3101,14 @@ namespace VNEngine.Unity
 }
 ```
 
-- [ ] **Step 3: Compile check**
+- [ ] **Step 6: Compile check**
 
-Refresh Unity, poll `editor_state.isCompiling` until false, `read_console` (types: error). Expected: zero errors. (No play test yet — the scene is wired in Task 14.)
+Refresh Unity, poll `mcpforunity://editor/state` until `isCompiling` false, `read_console` (types: error). Expected: zero errors. (No play test yet — the scene is wired in Task 14.)
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 ```bash
-git add Assets/Scripts/VNEngine/Unity/VnScriptLoader.cs Assets/Scripts/VNEngine/Unity/VNRunner.cs
-git commit -m "feat(vnengine): VNRunner coroutine host + script loader"
+git add Assets/Scripts/VNEngine/Editor Assets/Scripts/VNEngine/Unity/VnScriptLoader.cs Assets/Scripts/VNEngine/Unity/VNRunner.cs
+git commit -m "feat(vnengine): .vns importer + Resources-based loader + VNRunner (mobile-safe)"
 ```
 
 ---
@@ -3065,7 +3116,7 @@ git commit -m "feat(vnengine): VNRunner coroutine host + script loader"
 ## Task 14: Migration — intro.vns, scene wiring, parity verification, cleanup
 
 **Files:**
-- Create: `Assets/StreamingAssets/scripts/intro.vns`
+- Create: `Assets/Resources/scripts/intro.vns`
 - Modify (scene, via UnityMCP): `Assets/Scenes/Main.unity`
 - Delete: `Assets/Scripts/DialogueManager.cs`, `Assets/Scripts/DialogueManager.cs.meta`, `Assets/StreamingAssets/dialogues.json`, `Assets/StreamingAssets/dialogues.json.meta`
 
@@ -3075,7 +3126,7 @@ git commit -m "feat(vnengine): VNRunner coroutine host + script loader"
 
 - [ ] **Step 1: Write intro.vns**
 
-`Assets/StreamingAssets/scripts/intro.vns`:
+`Assets/Resources/scripts/intro.vns` (the `VnsImporter` from Task 13 imports it as a `TextAsset`):
 ```
 # 요르 데이트 시나리오 — dialogues.json 의 DSL 이식본
 character 요르 name:"요르"
@@ -3117,7 +3168,9 @@ On the `DialogueManager` GameObject (via UnityMCP `manage_components`):
 
 Wire `DialogueViewUnity` with the references recorded in Step 2: `dialoguePanel`, `speakerText`, `dialogueText`, `choiceButtonPrefab`, `choicesContainer`.
 Wire `StageViewUnity`: `leftSlot`, `centerSlot`, `rightSlot`, `background` (the `Background` object's SpriteRenderer), and add one `characters[]` entry `{ name: "요르", sprite: <the 요르 sprite from the old list> }`.
-Wire `VNRunner`: `dialogueView` → the DialogueViewUnity component, `stageView` → the StageViewUnity component, `scriptsSubfolder` = `scripts`, `entryLabel` = `start`, `randomSeed` = `12345`.
+Wire `VNRunner`: `dialogueView` → the DialogueViewUnity component, `stageView` → the StageViewUnity component, `scriptsResourcesFolder` = `scripts`, `entryLabel` = `start`, `randomSeed` = `12345`.
+
+Then configure the `Canvas` for mobile (responsive UI): on its `CanvasScaler`, set `uiScaleMode` = `ScaleWithScreenSize`, `referenceResolution` = `(1920, 1080)`, `screenMatchMode` = `MatchWidthOrHeight`, `matchWidthOrHeight` = `0.5`. (Notch/safe-area handling is deferred to P1.)
 
 Save the scene (UnityMCP `manage_scene` action `save`).
 
@@ -3176,7 +3229,8 @@ git push
 - "VM knows nothing about the screen" (interfaces) → Task 9 (`IDialogueView`/`IStageView`), core asmdef `noEngineReferences` → Task 1. ✓
 - EditMode unit tests with fakes → Tasks 2–10. ✓
 - Migration parity + remove legacy → Task 14. ✓
-- Entry label default `start`, scripts in `StreamingAssets/scripts/`, coroutine host → Task 13. ✓
+- Entry label default `start`, `.vns` in `Resources/scripts/`, coroutine host → Task 13. ✓
+- Mobile support (target Android/iOS/desktop): mobile-safe script loading via `.vns` ScriptedImporter + `Resources.LoadAll<TextAsset>` (no `File.IO`/StreamingAssets enumeration) → Task 13; touch works via mouse0 → Task 12; responsive `CanvasScaler` → Task 14. Safe-area/notch deferred to P1. ✓
 - Deferred (P1+): fade/dissolve, expressions of `bg` render, audio, save/load, float, string vars — correctly absent. ✓
 
 **Placeholder scan:** No TBD/TODO; every code step contains complete code; every test step contains real assertions. ✓
