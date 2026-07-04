@@ -33,6 +33,12 @@ namespace VNEngine.Unity
 
         private void Awake()
         {
+            if (dialogueText == null)
+            {
+                Debug.LogError("[DialogueView] dialogueText is not assigned");
+                enabled = false;
+                return;
+            }
             if (choicesContainer != null) choicesContainer.gameObject.SetActive(false);
         }
 
