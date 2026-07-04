@@ -71,7 +71,14 @@ namespace VNEngine
                 switch (ins.Op)
                 {
                     case Op.Say:
-                        _dialogue.ShowLine(ins.StrA, null, ins.StrB);
+                        {
+                            string speaker, color;
+                            if (ins.StrA == null) { speaker = null; color = null; }
+                            else if (_program.Characters.TryGetValue(ins.StrA, out var def))
+                            { speaker = def.DisplayName; color = def.Color; }
+                            else { speaker = ins.StrA; color = null; }
+                            _dialogue.ShowLine(speaker, color, TextInterpolator.Interpolate(ins.StrB, _state));
+                        }
                         _pc++;
                         _pending = Pending.Line;
                         return;
