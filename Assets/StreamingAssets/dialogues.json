@@ -1,0 +1,20 @@
+{
+  "lines": [
+    { "speaker": "요르", "text": "주말에 뭐 할래?", "show": "요르", "position": "left",
+      "choices": [
+        { "label": "같이 영화 보자", "goto": 1, "effect": "요르+30" },
+        { "label": "귀찮은데 그냥 집에", "goto": 1, "effect": "요르-10" }
+      ]
+    },
+    { "speaker": "나레이션", "text": "...그렇게 시간이 흘렀다.",
+      "branches": [
+        { "condition": "요르>=30", "goto": 2 },
+        { "condition": "요르>=0", "goto": 3 },
+        { "goto": 4 }
+      ]
+    },
+    { "speaker": "요르", "text": "너랑 있으면 즐거워. 우리 사귈래?", "end": true },
+    { "speaker": "요르", "text": "그냥 친구로 지내자.", "end": true },
+    { "speaker": "요르", "text": "...우리 안 맞는 것 같아.", "end": true }
+  ]
+}
