@@ -1,0 +1,11 @@
+{
+    "name": "VNEngine.Editor",
+    "rootNamespace": "VNEngine.Editor",
+    "references": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
