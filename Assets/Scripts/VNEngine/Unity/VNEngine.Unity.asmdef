@@ -1,0 +1,13 @@
+{
+    "name": "VNEngine.Unity",
+    "rootNamespace": "VNEngine.Unity",
+    "references": [
+        "VNEngine.Core",
+        "Unity.TextMeshPro",
+        "UnityEngine.UI"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
