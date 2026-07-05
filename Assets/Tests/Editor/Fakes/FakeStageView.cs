@@ -8,5 +8,6 @@ namespace VNEngine.Tests
         public void SetBackground(string name) => Log.Add($"bg:{name}");
         public void ShowCharacter(string name, string position) => Log.Add($"show:{name}:{position}");
         public void HideCharacter(string name) => Log.Add($"hide:{name}");
+        public void Clear() => Log.Add("clear");
     }
 }

@@ -23,11 +23,9 @@ namespace VNEngine.Unity
         public float characterScale = 0.35f;
 
         private readonly Dictionary<string, GameObject> _active = new Dictionary<string, GameObject>();
-        private string _currentBackground;
 
         public void SetBackground(string name)
         {
-            _currentBackground = name;
             var entry = backgrounds.Find(b => b != null && b.name == name);
             if (entry != null && entry.sprite != null && background != null)
                 background.sprite = entry.sprite; // optional swap; full transitions are P1
@@ -77,6 +75,14 @@ namespace VNEngine.Unity
                 if (go != null) Destroy(go);
                 _active.Remove(name);
             }
+        }
+
+        public void Clear()
+        {
+            foreach (var kv in _active)
+                if (kv.Value != null) Destroy(kv.Value);
+            _active.Clear();
+            if (background != null) background.sprite = null;
         }
 
         private Transform GetSlot(string position)

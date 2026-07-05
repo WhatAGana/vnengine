@@ -49,4 +49,16 @@ namespace VNEngine.Tests
             Assert.AreEqual("공원", s.Background);
         }
     }
+
+    public class FakeStageViewTests
+    {
+        [Test]
+        public void ClearIsLogged()
+        {
+            var v = new FakeStageView();
+            v.ShowCharacter("요르", "left");
+            v.Clear();
+            Assert.Contains("clear", v.Log);
+        }
+    }
 }
