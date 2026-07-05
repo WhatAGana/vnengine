@@ -15,8 +15,12 @@ namespace VNEngine
         private int _pc;
         private Pending _pending = Pending.None;
         private List<MenuOption> _activeOptions;
+        private readonly StageState _stageState = new StageState();
+        private string _lastSpeaker, _lastColor, _lastText;
 
         public bool IsFinished { get; private set; }
+
+        public bool IsWaiting => _pending != Pending.None;
 
         // Backstop against infinite loops: a single Tick() runs straight through all
         // non-dialogue instructions until the next Say/Menu/end, so this counts EVERY
@@ -85,15 +89,17 @@ namespace VNEngine
                             else if (_program.Characters.TryGetValue(ins.StrA, out var def))
                             { speaker = def.DisplayName; color = def.Color; }
                             else { speaker = ins.StrA; color = null; }
-                            _dialogue.ShowLine(speaker, color, TextInterpolator.Interpolate(ins.StrB, _state));
+                            string rendered = TextInterpolator.Interpolate(ins.StrB, _state);
+                            _lastSpeaker = speaker; _lastColor = color; _lastText = rendered;
+                            _dialogue.ShowLine(speaker, color, rendered);
                         }
                         _pc++;
                         _pending = Pending.Line;
                         return;
 
-                    case Op.Bg: _stage.SetBackground(ins.StrA); _pc++; break;
-                    case Op.Show: _stage.ShowCharacter(ins.StrA, ins.StrB); _pc++; break;
-                    case Op.Hide: _stage.HideCharacter(ins.StrA); _pc++; break;
+                    case Op.Bg: _stageState.SetBackground(ins.StrA); _stage.SetBackground(ins.StrA); _pc++; break;
+                    case Op.Show: _stageState.Show(ins.StrA, ins.StrB); _stage.ShowCharacter(ins.StrA, ins.StrB); _pc++; break;
+                    case Op.Hide: _stageState.Hide(ins.StrA); _stage.HideCharacter(ins.StrA); _pc++; break;
 
                     case Op.Set:
                         _state.Set(ins.StrA, ExprEval.Eval(ins.ExprA, _state));
@@ -149,6 +155,48 @@ namespace VNEngine
             if (labels.Count == 0)
                 throw new VnRuntimeException($"{ins.File}:{ins.Line}: menu has no available choices");
             _dialogue.ShowChoices(labels);
+        }
+
+        public SaveData CaptureSave(string programHash)
+        {
+            if (!IsWaiting)
+                throw new VnRuntimeException("cannot save: interpreter is not waiting for input");
+
+            var data = new SaveData
+            {
+                version = SaveData.SaveFormatVersion,
+                programHash = programHash,
+                rngState = unchecked((int)_state.Random.State),
+                pc = _pc,
+                pending = (int)_pending,
+                background = _stageState.Background,
+            };
+
+            foreach (var kv in _state.Snapshot)
+                data.vars.Add(new VarEntry { name = kv.Key, kind = (int)kv.Value.Kind, value = kv.Value.AsInt });
+
+            foreach (var frame in _callStack) // Stack enumerates top-first
+                data.callStack.Add(frame);
+
+            if (_pending == Pending.Line)
+            {
+                data.lineSpeaker = _lastSpeaker;
+                data.lineColor = _lastColor;
+                data.lineText = _lastText;
+            }
+            else if (_pending == Pending.Choice)
+            {
+                foreach (var opt in _activeOptions)
+                {
+                    data.choiceLabels.Add(opt.Label);
+                    data.choiceTargets.Add(opt.Target);
+                }
+            }
+
+            foreach (var kv in _stageState.Slots)
+                data.stage.Add(new StageChar { position = kv.Key, character = kv.Value });
+
+            return data;
         }
     }
 }
