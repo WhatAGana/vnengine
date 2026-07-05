@@ -178,13 +178,12 @@ namespace VNEngine
             foreach (var frame in _callStack) // Stack enumerates top-first
                 data.callStack.Add(frame);
 
-            if (_pending == Pending.Line)
-            {
-                data.lineSpeaker = _lastSpeaker;
-                data.lineColor = _lastColor;
-                data.lineText = _lastText;
-            }
-            else if (_pending == Pending.Choice)
+            // The last shown line matters for a Line wait and also for the line
+            // that sits above a Choice menu, so record it for both wait kinds.
+            data.lineSpeaker = _lastSpeaker;
+            data.lineColor = _lastColor;
+            data.lineText = _lastText;
+            if (_pending == Pending.Choice)
             {
                 foreach (var opt in _activeOptions)
                 {
@@ -229,15 +228,20 @@ namespace VNEngine
             // Pending input screen.
             _pending = (Pending)data.pending;
             _activeOptions = null;
+            // Restore the last shown line for both wait kinds: on its own for a
+            // Line wait, and beneath the menu for a Choice wait so a load looks
+            // identical to the save moment.
+            _lastSpeaker = NullIfEmpty(data.lineSpeaker);
+            _lastColor = NullIfEmpty(data.lineColor);
+            _lastText = data.lineText;
             if (_pending == Pending.Line)
             {
-                _lastSpeaker = NullIfEmpty(data.lineSpeaker);
-                _lastColor = NullIfEmpty(data.lineColor);
-                _lastText = data.lineText;
                 _dialogue.ShowLine(_lastSpeaker, _lastColor, _lastText);
             }
             else if (_pending == Pending.Choice)
             {
+                if (!string.IsNullOrEmpty(_lastSpeaker) || !string.IsNullOrEmpty(_lastText))
+                    _dialogue.ShowLine(_lastSpeaker, _lastColor, _lastText);
                 if (data.choiceLabels.Count != data.choiceTargets.Count)
                     throw new VnRuntimeException("corrupt save: choice labels/targets length mismatch");
                 _activeOptions = new List<MenuOption>();

@@ -159,5 +159,39 @@ namespace VNEngine.Tests
             Assert.AreEqual(expected, Texts(da).ToArray());
             Assert.AreEqual(expected, Texts(db).ToArray());
         }
+
+        [Test]
+        public void ChoiceRestoreReshowsLineAboveMenu()
+        {
+            // Saving at a choice menu must also restore the dialogue line that
+            // sits above the menu, so a load looks identical to the save moment.
+            const string src =
+                "요르 \"주말에 뭐 할래?\"\n" +   // wait A (line), then advance into the menu
+                "menu:\n" +
+                "    \"a\":\n" +
+                "        요르 \"picked-a\"\n" +
+                "        jump end\n" +
+                "    \"b\":\n" +
+                "        요르 \"picked-b\"\n" +
+                "        jump end\n" +
+                "label end:\n" +
+                "요르 \"end\"";
+
+            var da = new FakeDialogueView(0);
+            var interpA = Build(src, new GameState(new SeededRandom(1)), da, new FakeStageView());
+            TickToWait(interpA);            // stops at the line above the menu
+            interpA.Tick();                 // advance past the line -> menu shows (Choice wait)
+            Assert.AreEqual(1, da.ChoiceSets.Count, "precondition: interpreter is at the menu");
+            var data = interpA.CaptureSave("H");
+
+            var db = new FakeDialogueView(0);
+            var interpB = Build(src, new GameState(new SeededRandom(1)), db, new FakeStageView());
+            interpB.RestoreSave(data);
+
+            Assert.AreEqual(1, db.ChoiceSets.Count, "restore should re-show the menu");
+            Assert.IsTrue(
+                db.Lines.Exists(l => l.Text == "주말에 뭐 할래?" && l.Speaker == "요르"),
+                "restore should re-show the dialogue line displayed above the choice menu");
+        }
     }
 }
