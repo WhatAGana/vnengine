@@ -292,7 +292,9 @@ MonoBehaviour:
   centerSlot: {fileID: 1011023344}
   rightSlot: {fileID: 1611194002}
   background: {fileID: 473993617}
-  backgrounds: []
+  backgrounds:
+  - name: city_sunset
+    sprite: {fileID: 21300000, guid: 3d40e61bf7e132d4b8faff7831948dd3, type: 3}
   characters:
   - name: "\uC694\uB974"
     sprite: {fileID: 21300000, guid: e024baaeef5fec641aa4d7846be601ae, type: 3}

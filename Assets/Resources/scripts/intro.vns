@@ -3,6 +3,7 @@ character 요르 name:"요르"
 character 나레이션 name:"나레이션"
 
 label start:
+    bg city_sunset
     show 요르 left
     요르 "주말에 뭐 할래?"
     menu:
