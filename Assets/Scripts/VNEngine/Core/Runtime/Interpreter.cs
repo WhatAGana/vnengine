@@ -198,5 +198,63 @@ namespace VNEngine
 
             return data;
         }
+
+        public void RestoreSave(SaveData data)
+        {
+            // Variables.
+            foreach (var v in data.vars)
+                _state.Set(v.name, v.kind == 1 ? VnValue.Bool(v.value != 0) : VnValue.Int(v.value));
+
+            // RNG.
+            _state.Random.State = unchecked((uint)data.rngState);
+
+            // Execution position.
+            _pc = data.pc;
+            _callStack.Clear();
+            for (int i = data.callStack.Count - 1; i >= 0; i--) // stored top-first
+                _callStack.Push(data.callStack[i]);
+
+            // Stage: rebuild logical state and replay onto the (cleared) view.
+            _stageState.Background = null;
+            _stageState.Slots.Clear();
+            _stage.Clear();
+            string bg = NullIfEmpty(data.background);
+            if (bg != null) { _stageState.SetBackground(bg); _stage.SetBackground(bg); }
+            foreach (var sc in data.stage)
+            {
+                _stageState.Show(sc.character, sc.position);
+                _stage.ShowCharacter(sc.character, sc.position);
+            }
+
+            // Pending input screen.
+            _pending = (Pending)data.pending;
+            _activeOptions = null;
+            if (_pending == Pending.Line)
+            {
+                _lastSpeaker = NullIfEmpty(data.lineSpeaker);
+                _lastColor = NullIfEmpty(data.lineColor);
+                _lastText = data.lineText;
+                _dialogue.ShowLine(_lastSpeaker, _lastColor, _lastText);
+            }
+            else if (_pending == Pending.Choice)
+            {
+                if (data.choiceLabels.Count != data.choiceTargets.Count)
+                    throw new VnRuntimeException("corrupt save: choice labels/targets length mismatch");
+                _activeOptions = new List<MenuOption>();
+                var labels = new List<string>();
+                for (int i = 0; i < data.choiceLabels.Count; i++)
+                {
+                    _activeOptions.Add(new MenuOption { Label = data.choiceLabels[i], Target = data.choiceTargets[i] });
+                    labels.Add(data.choiceLabels[i]);
+                }
+                _dialogue.ShowChoices(labels);
+            }
+
+            IsFinished = false;
+        }
+
+        // JsonUtility serializes a null string as "", so a round-tripped save
+        // brings empty strings where we stored null (narration speaker, etc).
+        private static string NullIfEmpty(string s) => string.IsNullOrEmpty(s) ? null : s;
     }
 }
