@@ -3,6 +3,7 @@
     "rootNamespace": "VNEngine.Tests",
     "references": [
         "VNEngine.Core",
+        "VNEngine.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
