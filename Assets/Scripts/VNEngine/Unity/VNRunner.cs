@@ -97,8 +97,10 @@ namespace VNEngine.Unity
                 return false;
             }
 
-            if (_loop != null) { StopCoroutine(_loop); _loop = null; }
+            // Build the replacement interpreter BEFORE tearing down the running loop,
+            // so a rebuild failure leaves the current run intact instead of freezing.
             if (!BuildInterpreter()) return false;
+            if (_loop != null) { StopCoroutine(_loop); _loop = null; }
             _interp.RestoreSave(data);
             _loop = StartCoroutine(RunLoop());
             return true;

@@ -39,8 +39,11 @@ namespace VNEngine
         public int Range(int minInclusive, int maxInclusive)
         {
             if (maxInclusive < minInclusive) return minInclusive;
-            uint span = (uint)(maxInclusive - minInclusive) + 1u; // span>=1
-            return minInclusive + (int)(Next() % span);
+            // 64-bit span so the full int range (int.MinValue..int.MaxValue) can't
+            // overflow to 0 and divide-by-zero. For all normal ranges Next() % span
+            // is identical to the previous uint computation, so sequences are unchanged.
+            ulong span = (ulong)((long)maxInclusive - minInclusive) + 1UL; // span>=1
+            return (int)((long)minInclusive + (long)(Next() % span));
         }
     }
 }

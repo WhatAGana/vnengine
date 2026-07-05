@@ -129,5 +129,35 @@ namespace VNEngine.Tests
 
             Assert.IsNull(db.Lines[0].Speaker);
         }
+
+        [Test]
+        public void CallStackSurvivesSaveLoad()
+        {
+            // Save while inside a called subroutine; the return address must survive
+            // restore so execution returns to the caller afterwards.
+            const string src =
+                "call sub\n" +
+                "요르 \"after-return\"\n" +
+                "return\n" +
+                "label sub:\n" +
+                "요르 \"in-sub\"\n" +    // wait here: call stack holds 1 return frame
+                "요르 \"still-sub\"\n" +
+                "return";
+
+            var da = new FakeDialogueView();
+            var interpA = Build(src, new GameState(new SeededRandom(1)), da, new FakeStageView());
+            TickToWait(interpA);            // stops at "in-sub", inside sub
+            var data = interpA.CaptureSave("H");
+            RunToEnd(interpA);
+
+            var db = new FakeDialogueView();
+            var interpB = Build(src, new GameState(new SeededRandom(1)), db, new FakeStageView());
+            interpB.RestoreSave(data);
+            RunToEnd(interpB);
+
+            var expected = new[] { "in-sub", "still-sub", "after-return" };
+            Assert.AreEqual(expected, Texts(da).ToArray());
+            Assert.AreEqual(expected, Texts(db).ToArray());
+        }
     }
 }

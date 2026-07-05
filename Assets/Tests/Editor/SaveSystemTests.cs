@@ -78,5 +78,17 @@ namespace VNEngine.Tests
             Assert.IsFalse(SaveSystem.IsCompatible(d, "abc123"));
             Assert.IsFalse(SaveSystem.IsCompatible(null, "abc123"));
         }
+
+        [Test]
+        public void ReadCorruptJsonReturnsNull()
+        {
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SaveSystem.SlotPath(Slot)));
+            System.IO.File.WriteAllText(SaveSystem.SlotPath(Slot), "@@@ not valid json {{{");
+            // SaveSystem.Read logs via Debug.LogError on the catch->null path; Unity's
+            // test runner treats an unhandled error log as a test failure, so expect it.
+            UnityEngine.TestTools.LogAssert.Expect(UnityEngine.LogType.Error,
+                new System.Text.RegularExpressions.Regex(@"^\[SaveSystem\] failed to read slot"));
+            Assert.IsNull(SaveSystem.Read(Slot));
+        }
     }
 }
