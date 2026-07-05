@@ -17,6 +17,14 @@ namespace VNEngine
         private List<MenuOption> _activeOptions;
 
         public bool IsFinished { get; private set; }
+
+        // Backstop against infinite loops: a single Tick() runs straight through all
+        // non-dialogue instructions until the next Say/Menu/end, so this counts EVERY
+        // instruction executed in one Tick — not steps per source-level loop. A finite
+        // but very long loop with no dialogue inside (e.g. a future P4 resource-sim
+        // loop) would both trip this guard and run within a single frame. Raise the cap
+        // (it is a public field, tunable per scenario) or add a mid-loop yield if such a
+        // construct is needed. For P0 authored dialogue this ceiling is never approached.
         public int MaxStepsPerTick = 100000;
 
         public Interpreter(VnProgram program, GameState state, IDialogueView dialogue, IStageView stage)

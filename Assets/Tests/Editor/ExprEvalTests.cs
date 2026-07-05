@@ -34,6 +34,12 @@ namespace VNEngine.Tests
         [Test] public void EqualityInt() => Assert.AreEqual(VnValue.Bool(true), Eval("2 == 2"));
         [Test] public void NotEqualInt() => Assert.AreEqual(VnValue.Bool(true), Eval("2 != 3"));
 
+        // Equality is kind-strict: an Int never equals a Bool, even when their payloads
+        // match (Int(1) vs Bool(true) both carry 1). Pin this so `if flag == true`
+        // against an int-valued flag can't silently start matching after a refactor.
+        [Test] public void CrossKindEqualityIsFalse() => Assert.AreEqual(VnValue.Bool(false), Eval("1 == true"));
+        [Test] public void CrossKindInequalityIsTrue() => Assert.AreEqual(VnValue.Bool(true), Eval("1 != true"));
+
         [Test] public void VarVsVarComparison()
         {
             _s.Set("a", VnValue.Int(7));
