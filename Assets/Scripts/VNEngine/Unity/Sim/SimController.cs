@@ -18,7 +18,7 @@ namespace VNEngine.Unity
         [SerializeField] private Button buttonPrefab;
 
         private TurnEngine _engine;
-        private SimState _state;
+        private RunState _state;
 
         private void Start()
         {
@@ -64,7 +64,7 @@ namespace VNEngine.Unity
         {
             if (statusText == null) return;
             var sb = new StringBuilder();
-            sb.Append("주차: ").Append(_state.Week);
+            sb.Append("주차: ").Append(_state.Day);
             foreach (var r in _engine.Resources)
                 sb.Append("    ").Append(r.DisplayName).Append(": ").Append(_state.Resources[r.Id]);
             statusText.text = sb.ToString();

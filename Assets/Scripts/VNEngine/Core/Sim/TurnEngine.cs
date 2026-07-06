@@ -39,15 +39,15 @@ namespace VNEngine
             }
         }
 
-        public SimState CreateInitialState()
+        public RunState CreateInitialState()
         {
             var res = new Dictionary<string, int>();
             foreach (var r in _resources)
                 res[r.Id] = r.StartValue;
-            return new SimState(1, res);
+            return new RunState(1, res);
         }
 
-        public SimState ExecuteCommand(SimState state, string commandId)
+        public RunState ExecuteCommand(RunState state, string commandId)
         {
             if (state == null) throw new System.ArgumentNullException(nameof(state));
             if (!_commands.TryGetValue(commandId, out var cmd))
@@ -60,7 +60,7 @@ namespace VNEngine
             foreach (var e in cmd.Effects)
                 res[e.ResourceId] = (res.TryGetValue(e.ResourceId, out var cur) ? cur : 0) + e.Amount;
 
-            return new SimState(state.Week + 1, res);
+            return new RunState(state.Day + 1, res);
         }
     }
 }
