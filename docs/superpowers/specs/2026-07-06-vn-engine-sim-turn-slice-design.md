@@ -92,8 +92,12 @@ public sealed class TurnEngine {
 
 ## 에러 처리
 
-- 커널은 불변식 위반 시(정의 안 된 자원/커맨드) 던진다.
-- `SimController`가 시작 시 SO를 검증: 자원 id 중복, 커맨드가 참조하는 자원 id 미존재 → 명확한 메시지로 로그. 예외는 Unity 레이어에서 잡아 콘솔 에러로 표시.
+- **검증은 `TurnEngine` 생성자에 모은다**(규칙은 전부 커널에 — Unity 없이 테스트 가능):
+  - 자원 id 중복 → `VnRuntimeException`
+  - 커맨드 id 중복 → `VnRuntimeException`
+  - 커맨드 effect가 정의 안 된 자원 id 참조 → `VnRuntimeException`
+- `ExecuteCommand`에서 존재하지 않는 `commandId` → `VnRuntimeException`.
+- `SimController`는 SO를 순수 def로 변환해 `TurnEngine`을 생성만 한다. 잘못된 SO 배선이면 생성자 예외가 Unity 콘솔 에러로 표면화된다(별도 검증 로직 없음).
 
 ## Unity 어댑터 & UI
 
@@ -119,8 +123,14 @@ public sealed class TurnEngine {
 3. 순수성 — 원본 state 불변(반환값만 변경)
 4. 다중 자원 델타 한 커맨드에 정확 적용
 5. 음수 허용(클램프 없음 확인)
-6. 미정의 자원 id → `VnException`
-7. 미정의 commandId → `VnException`
+6. 생성자: 커맨드 effect가 미정의 자원 id 참조 → `VnRuntimeException`
+7. 생성자: 자원 id 중복 → `VnRuntimeException`
+8. 생성자: 커맨드 id 중복 → `VnRuntimeException`
+9. `ExecuteCommand`: 미정의 commandId → `VnRuntimeException`
+
+SO 어댑터 테스트 (`SimDefinitionSOTests`):
+10. `ResourceDefinitionSO.ToDef()` — 필드가 def로 정확히 매핑
+11. `CommandDefinitionSO.ToDef()` — effect 목록이 `ResourceDelta`로 정확히 매핑
 
 ## 완료 시 결과물
 
