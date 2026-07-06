@@ -46,5 +46,21 @@ namespace VNEngine
                 res[r.Id] = r.StartValue;
             return new SimState(1, res);
         }
+
+        public SimState ExecuteCommand(SimState state, string commandId)
+        {
+            if (state == null) throw new System.ArgumentNullException(nameof(state));
+            if (!_commands.TryGetValue(commandId, out var cmd))
+                throw new VnRuntimeException($"Unknown command: {commandId}");
+
+            var res = new Dictionary<string, int>(state.Resources.Count);
+            foreach (var kv in state.Resources)
+                res[kv.Key] = kv.Value;
+
+            foreach (var e in cmd.Effects)
+                res[e.ResourceId] = (res.TryGetValue(e.ResourceId, out var cur) ? cur : 0) + e.Amount;
+
+            return new SimState(state.Week + 1, res);
+        }
     }
 }
