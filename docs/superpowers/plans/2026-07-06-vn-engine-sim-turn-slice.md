@@ -303,13 +303,19 @@ git commit -m "feat(sim): TurnEngine data types + constructor validation + initi
         }
 
         [Test]
-        public void ExecuteCommandAppliesMultipleDeltasInOneCommand()
+        public void ExecuteCommandLeavesUntouchedResourcesUnchanged()
         {
-            var engine = Engine();
-            var next = engine.ExecuteCommand(engine.CreateInitialState(), "raid");
-            // raid 는 money 와 magic 둘 다 건드림 — 위 값이 둘 다 반영됐는지 재확인
-            Assert.AreEqual(150, next.Resources["money"]);
-            Assert.AreEqual(30, next.Resources["magic"]);
+            // rest 는 magic 만 건드림 → money 는 그대로여야 한다
+            var rest = new CommandDef("rest", "휴식", new List<ResourceDelta>
+            {
+                new ResourceDelta("magic", 30),
+            });
+            var engine = new TurnEngine(
+                new List<ResourceDef> { Money(100), Magic(50) },
+                new List<CommandDef> { rest });
+            var next = engine.ExecuteCommand(engine.CreateInitialState(), "rest");
+            Assert.AreEqual(100, next.Resources["money"]); // 안 건드린 자원 유지
+            Assert.AreEqual(80, next.Resources["magic"]);  // 50 + 30
         }
 
         [Test]
