@@ -4,6 +4,11 @@
 > 기존 엔진의 두 원칙을 그대로 따른다: **① 순수 코어(UnityEngine 비의존) ② 불변 상태(순수 함수형 턴)**.
 > 목표: 「둥지짓는 드래곤」류 다회차 루프의 뼈대. **회귀(regression)를 1급 개념으로** 만든다.
 
+> **착수 상태(2026-07-06)**: 이 문서의 **얇은 버전**이 구현됨 — RunState/MetaState/CampaignState 2층 컨테이너 +
+> `LoopEngine.StartNewLoop`(LoopCount+1, Run 리셋)까지. `Regress`의 계승·편지·진실플래그·VN 투영, 디스크 세이브,
+> RunState 디펜스 필드는 **여전히 미구현**(이 문서의 나머지 = 다음 슬라이스들). 구현 스펙:
+> `docs/superpowers/specs/2026-07-06-vn-engine-sim-loop-state-slice-design.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---
