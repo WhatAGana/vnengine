@@ -2,14 +2,14 @@ using System.Collections.Generic;
 
 namespace VNEngine
 {
-    public sealed class SimState
+    public sealed class RunState
     {
-        public int Week { get; }
+        public int Day { get; }
         public IReadOnlyDictionary<string, int> Resources { get; }
 
-        public SimState(int week, IReadOnlyDictionary<string, int> resources)
+        public RunState(int day, IReadOnlyDictionary<string, int> resources)
         {
-            Week = week;
+            Day = day;
             Resources = resources;
         }
     }

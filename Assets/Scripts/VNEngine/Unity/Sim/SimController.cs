@@ -16,9 +16,11 @@ namespace VNEngine.Unity
         [SerializeField] private TMP_Text statusText;
         [SerializeField] private Transform buttonContainer;
         [SerializeField] private Button buttonPrefab;
+        [SerializeField] private Button newLoopButton; // "새 회차" — 없으면 무시
 
-        private TurnEngine _engine;
-        private SimState _state;
+        private TurnEngine _turnEngine;
+        private LoopEngine _loop;
+        private CampaignState _campaign;
 
         private void Start()
         {
@@ -28,10 +30,18 @@ namespace VNEngine.Unity
             var cmdDefs = new List<CommandDef>(commands.Count);
             foreach (var c in commands) cmdDefs.Add(c.ToDef());
 
-            _engine = new TurnEngine(resDefs, cmdDefs); // 배선 오류면 여기서 VnRuntimeException → 콘솔 에러
-            _state = _engine.CreateInitialState();
+            _turnEngine = new TurnEngine(resDefs, cmdDefs); // 배선 오류면 여기서 VnRuntimeException → 콘솔 에러
+            _loop = new LoopEngine(_turnEngine);
+            _campaign = _loop.CreateInitialCampaign();
 
             BuildButtons();
+
+            if (newLoopButton != null)
+            {
+                newLoopButton.onClick.RemoveAllListeners();
+                newLoopButton.onClick.AddListener(OnNewLoop);
+            }
+
             Refresh();
         }
 
@@ -42,7 +52,7 @@ namespace VNEngine.Unity
                 Debug.LogError("[SimController] buttonPrefab or buttonContainer not assigned");
                 return;
             }
-            foreach (var c in _engine.Commands)
+            foreach (var c in _turnEngine.Commands)
             {
                 string commandId = c.Id; // capture
                 Button btn = Instantiate(buttonPrefab, buttonContainer);
@@ -56,7 +66,13 @@ namespace VNEngine.Unity
 
         private void OnCommand(string commandId)
         {
-            _state = _engine.ExecuteCommand(_state, commandId);
+            _campaign = _loop.ExecuteCommand(_campaign, commandId);
+            Refresh();
+        }
+
+        private void OnNewLoop()
+        {
+            _campaign = _loop.StartNewLoop(_campaign);
             Refresh();
         }
 
@@ -64,9 +80,10 @@ namespace VNEngine.Unity
         {
             if (statusText == null) return;
             var sb = new StringBuilder();
-            sb.Append("주차: ").Append(_state.Week);
-            foreach (var r in _engine.Resources)
-                sb.Append("    ").Append(r.DisplayName).Append(": ").Append(_state.Resources[r.Id]);
+            sb.Append("회차: ").Append(_campaign.Meta.LoopCount);
+            sb.Append("    일차: ").Append(_campaign.Run.Day);
+            foreach (var r in _turnEngine.Resources)
+                sb.Append("    ").Append(r.DisplayName).Append(": ").Append(_campaign.Run.Resources[r.Id]);
             statusText.text = sb.ToString();
         }
     }

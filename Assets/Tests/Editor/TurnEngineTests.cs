@@ -19,10 +19,10 @@ namespace VNEngine.Tests
             new List<CommandDef> { Raid() });
 
         [Test]
-        public void CreateInitialStateUsesStartValuesAndWeekOne()
+        public void CreateInitialStateUsesStartValuesAndDayOne()
         {
             var state = Engine().CreateInitialState();
-            Assert.AreEqual(1, state.Week);
+            Assert.AreEqual(1, state.Day);
             Assert.AreEqual(100, state.Resources["money"]);
             Assert.AreEqual(50, state.Resources["magic"]);
         }
@@ -56,11 +56,11 @@ namespace VNEngine.Tests
         }
 
         [Test]
-        public void ExecuteCommandAppliesDeltasAndAdvancesWeek()
+        public void ExecuteCommandAppliesDeltasAndAdvancesDay()
         {
             var engine = Engine();
             var next = engine.ExecuteCommand(engine.CreateInitialState(), "raid");
-            Assert.AreEqual(2, next.Week);
+            Assert.AreEqual(2, next.Day);
             Assert.AreEqual(150, next.Resources["money"]); // 100 + 50
             Assert.AreEqual(30, next.Resources["magic"]);  // 50 - 20
         }
@@ -71,7 +71,7 @@ namespace VNEngine.Tests
             var engine = Engine();
             var initial = engine.CreateInitialState();
             engine.ExecuteCommand(initial, "raid");
-            Assert.AreEqual(1, initial.Week);
+            Assert.AreEqual(1, initial.Day);
             Assert.AreEqual(100, initial.Resources["money"]);
             Assert.AreEqual(50, initial.Resources["magic"]);
         }
