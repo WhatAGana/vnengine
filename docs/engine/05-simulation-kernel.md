@@ -95,11 +95,6 @@ RunState ExecuteCommand(RunState state, string commandId)
 - 향후 접합점: 커맨드 실행 시 `.vns` 씬 재생(턴 사이 서사), 커맨드 효과를 평면 int 델타 대신 **기존 표현식 엔진(ExprEval)**으로
   수식화 → VN `GameState`와 공유. 이때 [02 표현식](02-expression-language.md)·[03 실행 모델](03-architecture-and-execution.md)을 재사용합니다.
 
----
-
-> **회차 루프 상태**: Run/Meta 상태 분리는 착수됨(얇은 버전) — `StartNewLoop`까지. 디스크 세이브·회귀 내용 로직·
-> 디펜스 필드는 미룸. 상세: [06 회차 루프 & 메타/런 상태 분리](06-loop-and-state.md).
-
 ## 6. 미구현 (다음 슬라이스 후보)
 
 같은 `Core/Sim` + `Unity/Sim` 패턴으로 확장 예정:
