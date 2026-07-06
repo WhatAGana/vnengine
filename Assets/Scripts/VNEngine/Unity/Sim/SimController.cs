@@ -17,6 +17,9 @@ namespace VNEngine.Unity
         [SerializeField] private Transform buttonContainer;
         [SerializeField] private Button buttonPrefab;
         [SerializeField] private Button newLoopButton; // "새 회차" — 없으면 무시
+        [SerializeField] private Button saveButton;    // "세이브" — 없으면 무시
+        [SerializeField] private Button loadButton;    // "로드" — 없으면 무시
+        [SerializeField] private int saveSlot = 0;
 
         private TurnEngine _turnEngine;
         private LoopEngine _loop;
@@ -40,6 +43,16 @@ namespace VNEngine.Unity
             {
                 newLoopButton.onClick.RemoveAllListeners();
                 newLoopButton.onClick.AddListener(OnNewLoop);
+            }
+            if (saveButton != null)
+            {
+                saveButton.onClick.RemoveAllListeners();
+                saveButton.onClick.AddListener(OnSave);
+            }
+            if (loadButton != null)
+            {
+                loadButton.onClick.RemoveAllListeners();
+                loadButton.onClick.AddListener(OnLoad);
             }
 
             Refresh();
@@ -73,6 +86,20 @@ namespace VNEngine.Unity
         private void OnNewLoop()
         {
             _campaign = _loop.StartNewLoop(_campaign);
+            Refresh();
+        }
+
+        private void OnSave()
+        {
+            CampaignSaveSystem.Write(saveSlot, CampaignSave.Capture(_campaign));
+            Debug.Log($"[SimController] saved slot {saveSlot}: 회차{_campaign.Meta.LoopCount}/일차{_campaign.Run.Day}");
+        }
+
+        private void OnLoad()
+        {
+            var data = CampaignSaveSystem.Read(saveSlot);
+            if (data == null) { Debug.Log($"[SimController] no save in slot {saveSlot}"); return; }
+            _campaign = CampaignSave.Restore(data);
             Refresh();
         }
 

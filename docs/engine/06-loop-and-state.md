@@ -9,6 +9,11 @@
 > RunState 디펜스 필드는 **여전히 미구현**(이 문서의 나머지 = 다음 슬라이스들). 구현 스펙:
 > `docs/superpowers/specs/2026-07-06-vn-engine-sim-loop-state-slice-design.md`.
 
+> **착수 상태(2026-07-07)**: 여기에 더해 **디스크 영속화**(`CampaignSave` + Unity `CampaignSaveSystem`, 별도 파일 `campaign_N.json`)와
+> **메타→VN 읽기전용 투영**(`MetaProjection`: LoopCount→변수)이 구현됨. RunState는 방어적 복사로 불변 강화됨.
+> `Regress` 내용 로직(계승·편지·진실플래그·미갈)과 캠페인+VN VM 통합 세이브는 **여전히 미구현**. 스펙:
+> `docs/superpowers/specs/2026-07-07-vn-engine-sim-persistence-slice-design.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---

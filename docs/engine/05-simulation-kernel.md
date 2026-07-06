@@ -34,6 +34,9 @@
 | `MetaState` | LoopCount | 회차를 넘어 유지되는 상태(불변) |
 | `CampaignState` | Meta, Run | `MetaState`+`RunState` 2층 컨테이너(세이브 단위) |
 | `LoopEngine` | (`TurnEngine` 소유) | `CreateInitialCampaign`·`ExecuteCommand`·`StartNewLoop` |
+| `CampaignSaveData` | version, loopCount, day, List&lt;ResEntry&gt;{id,value} | `CampaignState`의 평면 직렬화 형태(`[Serializable]`, JsonUtility 호환·딕셔너리 없음) |
+| `CampaignSave` | `Capture(CampaignState)→CampaignSaveData` / `Restore(CampaignSaveData)→CampaignState` | 순수 캡처/복원(IO 없음). version 불일치 시 `VnRuntimeException` |
+| `MetaProjection` | `Project(MetaState, GameState, string loopCountVar)` | 메타→VN 읽기전용 투영(LoopCount→변수) |
 
 ---
 
@@ -86,14 +89,18 @@ RunState ExecuteCommand(RunState state, string commandId)
 
 ---
 
-> **회차 루프 상태**: Run/Meta 상태 분리는 착수됨(얇은 버전) — `StartNewLoop`까지. 디스크 세이브·회귀 내용 로직·
-> 디펜스 필드는 미룸. 상세: [06 회차 루프 & 메타/런 상태 분리](06-loop-and-state.md).
+> **회차 루프 상태**: Run/Meta 상태 분리는 착수됨(얇은 버전) — `StartNewLoop`, 그리고 이제 **디스크 세이브**
+> (`CampaignSave`+`CampaignSaveSystem`, 별도 파일 `campaign_N.json`)·**읽기전용 투영**(`MetaProjection`)까지 됨.
+> `RunState`는 생성자에서 `Resources`를 방어적 복사해 불변이 한층 강화됨. `Regress` 내용 로직(계승·편지·진실플래그·미갈)과
+> 캠페인+VN VM 통합 세이브는 여전히 미룸. 상세: [06 회차 루프 & 메타/런 상태 분리](06-loop-and-state.md).
 
 ## 5. VN 코어와의 관계
 
 - 지금은 **독립**입니다. 시뮬 커널은 `.vns` VM과 코드 공유가 없습니다(자원↔변수, 커맨드↔.vns 씬 접합은 미구현).
 - 향후 접합점: 커맨드 실행 시 `.vns` 씬 재생(턴 사이 서사), 커맨드 효과를 평면 int 델타 대신 **기존 표현식 엔진(ExprEval)**으로
   수식화 → VN `GameState`와 공유. 이때 [02 표현식](02-expression-language.md)·[03 실행 모델](03-architecture-and-execution.md)을 재사용합니다.
+- 다만 **메타→VN 단방향 투영**(`MetaProjection`, 읽기전용, LoopCount→변수)이 접합 심으로 추가됨.
+  `.vns`에서 `if 회차 >= 2:` 같은 분기가 가능해지는 첫 걸음이다. 방향은 커널→VN뿐(VN이 메타를 직접 쓰진 않음).
 
 ## 6. 미구현 (다음 슬라이스 후보)
 
@@ -102,7 +109,8 @@ RunState ExecuteCommand(RunState state, string commandId)
 - 커맨드 효과 **수식화**(ExprEval 재사용, VN GameState 접합).
 - **디펜스 전투**(던전 방·함정·몬스터 배치·요격) — 게임의 핵심 루프.
 - 관계/호감도 + 해금 플래그, 건설/업그레이드.
-- `CampaignState`(Meta+Run) **디스크 세이브/로드** 통합(평면 구조라 기존 세이브 패턴에 얹기 쉬움 → [04](04-save-load-format.md)).
+- `CampaignState` 단독 디스크 세이브는 완료(`CampaignSave`+`CampaignSaveSystem`). 남은 것: 04의 **VN VM 세이브와 통합**한
+  단일 세이브(캠페인+VN 상태를 한 슬롯에)([04](04-save-load-format.md)).
 - `Regress`의 계승·편지·진실플래그·VN 투영, `RunState` 디펜스 필드([06](06-loop-and-state.md) 참고, 아직 미구현).
 
 ---

@@ -10,7 +10,9 @@ namespace VNEngine
         public RunState(int day, IReadOnlyDictionary<string, int> resources)
         {
             Day = day;
-            Resources = resources;
+            var copy = new Dictionary<string, int>(resources.Count);
+            foreach (var kv in resources) copy[kv.Key] = kv.Value; // 방어적 복사
+            Resources = copy;
         }
     }
 }
