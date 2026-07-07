@@ -16,6 +16,8 @@ namespace VNEngine
             };
             foreach (var kv in c.Run.Resources)
                 data.resources.Add(new ResEntry { id = kv.Key, value = kv.Value });
+            foreach (var kv in c.Meta.Heroes.Values)
+                data.stats.Add(new StatEntry { id = kv.Key.Value, value = kv.Value });
             return data;
         }
 
@@ -30,8 +32,14 @@ namespace VNEngine
             foreach (var e in data.resources)
                 res[e.id] = e.value;
 
-            // RunState 생성자가 res를 다시 방어적 복사 → 세이브데이터 리스트와 참조 분리.
-            return new CampaignState(new MetaState(data.loopCount), new RunState(data.day, res));
+            var statDict = new Dictionary<StatId, int>(data.stats != null ? data.stats.Count : 0);
+            if (data.stats != null)
+                foreach (var e in data.stats)
+                    statDict[new StatId(e.id)] = e.value;
+            var heroes = new HeroStats(statDict);
+
+            // RunState 생성자가 res 를, HeroStats 생성자가 statDict 를 다시 방어적 복사 → 세이브데이터 리스트와 참조 분리.
+            return new CampaignState(new MetaState(data.loopCount, heroes), new RunState(data.day, res));
         }
     }
 }

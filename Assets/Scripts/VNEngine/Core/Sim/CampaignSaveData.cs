@@ -9,6 +9,13 @@ namespace VNEngine
         public int value;
     }
 
+    [System.Serializable]
+    public sealed class StatEntry
+    {
+        public string id;      // StatId.Value 로 평면화
+        public int value;
+    }
+
     // JsonUtility 호환: 딕셔너리 대신 리스트, 원시 타입만.
     [System.Serializable]
     public sealed class CampaignSaveData
@@ -19,5 +26,6 @@ namespace VNEngine
         public int loopCount;                 // Meta.LoopCount
         public int day;                       // Run.Day
         public List<ResEntry> resources = new List<ResEntry>(); // Run.Resources 평면화
+        public List<StatEntry> stats = new List<StatEntry>();   // Meta.Heroes 평면화(StatId→string). additive: 구세이브는 빈 리스트→빈 Heroes.
     }
 }
