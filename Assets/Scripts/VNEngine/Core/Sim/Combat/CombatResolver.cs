@@ -13,10 +13,15 @@ namespace VNEngine
 
         // 명중판정 롤 범위(HitParams.HitRollMax). 방어몹 요격은 DamageFormula.Apply(결정론, rng 미사용)만
         // 쓰므로 이 상수는 주인공의 코어앞1칸 요격에만 쓰인다.
+        // 퍼센트 스케일 롤 관례(0~100) — 추후 크리티컬 배수와 함께 전투 상수 데이터소스로 편입될 후보.
         private const int HeroHitRollMax = 100;
 
-        // 치명타는 항상 보너스(>=100) -> 명중한 타격이 0으로 굴러떨어지는 일이 없도록 보장.
-        private const int HeroCritMultiplierPct = 200;
+        // 이 슬라이스에는 "치명타 피해량" 데이터소스가 아직 없다(07-B/C 예산/밸런싱 비스코프) ->
+        // 100(=배수 없음)으로 취급(하드코딩 분기 아님 — 미도입 데이터의 중립값). 치명타 발생 여부는
+        // CritRating으로 이미 모델링되어 있으므로 크리티컬 "판정"은 중립이 아니지만 "배수"만 중립이다.
+        // DamageFormula.Apply가 크리티컬 배수 곱셈 전에 이미 Math.Max(1, ...)로 명중타를 바닥처리하므로
+        // 이 값이 100이어도(>=100이기만 하면) "명중한 타격이 0으로 굴러떨어지는" 문제는 발생하지 않는다.
+        private const int HeroCritMultiplierPct = 100;
 
         // 이 슬라이스에는 "배치 몹 레벨" 개념이 아직 없다(07-B 예산/배치 로직 비스코프) ->
         // ThreatFormula.Compute 의 avgPlacedMonsterLevel 항은 0으로 취급(하드코딩 분기 아님 — 미도입 데이터의 중립값).
@@ -35,7 +40,7 @@ namespace VNEngine
             int loopCount,
             IRandom rng)
         {
-            if (run == null) throw new ArgumentNullException(nameof(run));
+            if (run == null) throw new ArgumentNullException(nameof(run)); // run: 브리프 시그니처가 요구해 보존됨 — 이 슬라이스 로직에서는 소비되지 않음.
             if (wave == null) throw new ArgumentNullException(nameof(wave));
             if (rooms == null) throw new ArgumentNullException(nameof(rooms));
             if (hero == null) throw new ArgumentNullException(nameof(hero));
@@ -149,6 +154,8 @@ namespace VNEngine
             }
 
             // 코어앞1칸: 주인공 단독 요격(1회 타격만 — 생존시 코어 도달).
+            // 주인공은 이 슬라이스에서 순수 요격자(interceptor)로만 모델링됨 — 주인공 HP/Defense 소모는
+            // 의도적으로 미구현(비스코프)이며, 침입자 반격으로 인한 주인공 피해는 이 함수에 없다.
             var heroDmg = DamageFormula.Resolve(heroProfile.PhysicalAttack, attacker.Def, HeroMatchupPct, heroHitParams, rng);
             hp -= heroDmg;
 
