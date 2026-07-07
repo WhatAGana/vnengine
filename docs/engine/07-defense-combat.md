@@ -56,6 +56,10 @@
 
 ## 2. 침입자(Attacker) 생성
 
+> **구현 상태(07-A2, 2026-07-08):** §2.2(병종 데이터/상극)·§2.3(위협 기준선 공식)은 `Core/Sim/Combat/`에 순수함수로
+> 구현됨 — 아래 각 하위섹션에 실제 타입 매핑. §2.1(웨이브 규모 5~60 생성 곡선)은 **미구현**(07-B/C 스코프) —
+> 이 슬라이스는 이미 구성된 `WaveDef`(병종별 수량 리스트)를 입력으로 받아 해결만 한다.
+
 ### 2.1 규모 — 5 ~ 60명 (12명 × 5파티)
 - 한 웨이브당 **최소 5 ~ 최대 60명**. (시뮬 검증: 5~30은 처리량 병목 → 성장 정체. 5~60이 병목 해소)
 - 규모는 회차·던전레벨에 따라 스케일. 초반 회차는 5~15, 후반은 40~60 쪽으로 편향.
@@ -78,6 +82,15 @@ wave_size = clamp(5, 60,  8 + loop*3 + dungeonLevel*3 + random(-4, 6))
 - **상극은 데이터 테이블** `ClassMatchup[atk][def] = 정수%`. 예: 암살계→마법사 150(×1.5), →탱커 70(×0.7). 커널은 곱하기만.
 - 권장 범위 ×0.5~×2.0 (극단 피하기 — 너무 크면 특정 카운터가 전부 결정).
 
+> **구현(07-A2):** `UnitClassId`(string 래핑 값타입)·`UnitClassDef`(Id/DisplayName/HpPct/AtkPct/DefPct/CanBeCaptured,
+> 전부 정수%)·`UnitClassCatalog.Default()`(+`UnitClassIds` 상수)가 위 5행을 그대로 데이터화: 탱커=Tank(150/60/150,
+> 포획불가) · 마법사=Mage(70/150/60, 포획가능) · 성기사=Paladin(100/100/100, 포획불가) · 궁수=Archer(70/100/70,
+> 포획가능) · 성직=Priest(60/60/60, 포획가능). "HP/ATK/DEF 배수(hpMul 등)" 서술은 실제로는 **정수 퍼센트**
+> (`HpPct`/`AtkPct`/`DefPct`, `ThreatBase * Pct / 100`)로 구현됨.
+> `ClassMatchup`은 `(atk,def)→정수%` 딕셔너리(`Multiplier(atk,def)`, 미등록 쌍은 기본 100=중립). `ClassMatchup.Default()`
+> 예시: Archer→Mage 150, Archer→Tank 70, Mage→Tank 70, Paladin→Mage 130. 위 서술의 "암살계"는 1편 카탈로그에
+> 없는 예시 병종 — 현재는 5병종(Tank/Mage/Paladin/Archer/Priest)만 데이터화됨.
+
 ### 2.3 침입자 능력치 산출식
 
 ```
@@ -98,6 +111,17 @@ unit.DEF = max(1, round(ThreatBase * class.defMul) + random(-5, 5))
 - `AvgPlacedMonsterLevel` 항 = 강한 방어 깔면 강한 적. **가중치 작게**(시뮬: w_placed=1). 크면 "강해질수록 손해".
 - `random(-5,5)` = 02 표현식의 시드 결정론적 난수 → 세이브 재현성.
 
+> **구현(07-A2):** `ThreatWeights`(WHero/WLoop/WPlaced/WDungeon/BaseOffset)와 `ThreatFormula.Compute`가 위
+> 공식을 그대로 구현. `ThreatWeights.Default()` = wHero2/wLoop8/wPlaced1/wDungeon3/baseOffset20 — 문서 초기추정과
+> 동일. **핵심 설계결정(두 가중치 테이블 분리):** `w_hero` 항은 "HeroLevel"이 아니라 `heroPower`(정수 스칼라)를
+> 받으며, 이 값은 반드시 `ThreatFormula.HeroPowerOf(StatCombatWeights, HeroStats)` =
+> `StatCombatWeights.Derive(hero).CombatPower`를 거쳐야 한다 — raw 8스탯 합을 직접 대입하는 것은 금지(구조적으로
+> `HeroPowerOf` 래퍼가 그 경로를 강제). `ThreatWeights`(침입자가 얼마나 강한가, 5항)와 `StatCombatWeights`(주인공
+> 8스탯→전투역할 파생, 밸런스 핵심 독립 테이블)는 서로 다른 파일·타입이며 참조만 한다 — 섞으면 안 됨.
+> `AvgPlacedMonsterLevel`은 이 슬라이스에 배치 몹 레벨 데이터가 없어 `CombatResolver` 내부에서 항상 0으로
+> 취급(07-B 이후 실배선). 개체 능력치 산출(`unit.HP/ATK/DEF`)은 `AttackerFactory.Create`가 담당(호출순서
+> HP→ATK→DEF 고정, `IRandom` 경유 결정론).
+
 ---
 
 ## 3. 데미지 공식 (분기형)
@@ -117,9 +141,21 @@ dmg = max(1, dmg)                # 0 데미지 금지
 - 정수 연산만 → 02 표현식 엔진(Int 전용) 호환.
 - **대안(비율 방어)**: `dmg = raw * 100 / (100 + defPercent)` (TDS식). DEF를 감쇠율로 쓰고 싶을 때. 초기엔 위 분기형 권장(직관·튜닝 쉬움).
 
+> **구현(07-A2):** `DamageFormula.Raw(atk,def)`가 위 분기형 원시데미지를 그대로 구현(`atk>=def`면
+> `atk*2-def`, 아니면 `atk*atk/def` 정수나눗셈). `DamageFormula.Apply(atk,def,matchupPct)`가 상극 배수 적용 +
+> `max(1,...)`까지 구현. 전부 정수 연산(부동소수 없음).
+> **문서 §3엔 없던 확장분:** `DamageFormula.Resolve(...)`가 명중(`HitRating` vs `Evasion`)·치명타(`CritRating`)
+> 판정을 추가로 얹음(`HitParams` + `IRandom` 소비, 롤 순서 고정: 명중롤 → 명중시에만 치명롤). 이 슬라이스에선
+> **주인공의 코어앞1칸 요격에만** 쓰이고, 방어몹→침입자 데미지는 `Apply`만 사용(명중/치명 판정 없음). 치명타
+> 배수는 데이터 미도입 → 중립값 100(배수 없음) 플레이스홀더로 취급.
+
 ---
 
 ## 4. 방 그래프 & 배치 예산제
+
+> **구현 상태(07-A2):** §4.4(진행·요격, 결정론)와 §4.5(처치/포획 분기)는 `RoomNode`+`CombatResolver.ResolveWave`로
+> **단순화된 형태로 구현됨**. §4.1(방 그래프/상한)·§4.2(배치 예산제)·§4.3(코스트=레어도)·§4.6(웨이브 종류 구분)은
+> **미구현**(07-B/C 스코프) — 아래 각 하위섹션에 표기.
 
 ### 4.1 방 구조 (가변, 던전레벨이 상한)
 - 방은 **그래프 노드**. 첫 슬라이스는 선형(1→2→3→4→5코어), 자료구조는 분기·병렬 경로 확장 가능한 그래프로 열어둠.
@@ -127,11 +163,18 @@ dmg = max(1, dmg)                # 0 데미지 금지
 - **상한과 실제 건설은 분리**: 던전레벨 = 지을 수 있는 천장, 실제 건설 = 그 안에서 자원(골드) 소모하며 하나씩. → 레벨만 올리고 방은 안 짓는 것도 전략(자원 다른 데 투자).
 - 코어(마지막 노드) 피격 = 회차 실패(1회차는 서사적 자폭 회귀로 연결).
 
+> **미구현(07-A2 기준):** `RoomNode`는 `Defenders`(배치완료 `Attacker` 목록)와 `HasTrap`만 담는 불변 스냅샷.
+> 방 상한·던전레벨 연동·그래프/분기 구조는 없음 — `CombatResolver.ResolveWave`는 `IReadOnlyList<RoomNode>`를
+> **선형 순회**만 한다(첫 슬라이스는 문서가 예고한 "선형" 그대로, 그래프 확장은 07-B 이후).
+
 ### 4.2 배치 예산제 (포인트 바이)
 - **총 예산 = 현재 열려있는 방 개수 × 3.** (최대 방이 아니라 **현재 방** 기준 — 최대 기준이면 "방 최소, 몹 최대"가 정답이 돼 방 시스템이 죽음)
 - 각 몹은 **코스트(레어도)**를 가짐. 예: 임프1, 고블린1, 오크2, 하이오크3, 서큐버스3, 데스나이트4, 고위마족5.
 - 예산 내에서 자유 배치: 방3개(예산9)면 서큐(3)+데스나이트(4)+오크(2)=9, 또는 고위마족(5)+임프×4(4)=9 등.
 - **두 겹 제약**(총예산 + 개체코스트)이 "질 vs 양"의 고민을 만듦. 이게 "머리 쓰는 배치"의 핵심.
+
+> **미구현(07-A2 기준):** `RoomNode.Defenders`는 이미 배치가 끝난 `Attacker` 목록을 그대로 받아 스냅샷할 뿐,
+> 예산·코스트·`MonsterDef` 개념은 없음. "배치 결과를 소비"만 하고 "배치 자체"는 07-B 스코프.
 
 ### 4.3 코스트=레어도 원칙
 - **코스트 대비 효율은 대체로 평평하되, 구간마다 다른 강점**:
@@ -140,6 +183,8 @@ dmg = max(1, dmg)                # 0 데미지 금지
   - 중간(오크·서큐버스): 범용 + 특수기능(서큐버스=아그네스 해금 트리거 등)
 - → "9포인트 쪼개기"가 침입자 병종 구성(상극)에 따라 매번 달라짐. 예산제 + 상극이 맞물려 전략 깊이.
 - **몰아넣기 vs 분산**: 몰아넣기=한 방 화력집중(강적 처리, 다른 방 빔), 분산=전 방 마모(물량 대응, 강적 놓칠 수). 방 그래프 분기 구조면 경로예측 게임으로 심화.
+
+> **미구현(07-A2 기준):** 코스트/레어도 데이터(`MonsterDef.Cost`)와 예산 배분 로직 자체가 없음(§4.2와 동일 사유).
 
 ### 4.4 진행·요격 (결정론)
 ```
@@ -150,14 +195,30 @@ dmg = max(1, dmg)                # 0 데미지 금지
 ```
 - **전투 해상도는 결정론적**(시드 고정) → 리플레이·세이브·테스트 재현.
 
+> **구현(07-A2):** `CombatResolver.ResolveWave`가 위 흐름을 그대로 구현. 웨이브의 각 침입자를 `AttackerFactory`로
+> 생성한 즉시 `rooms`를 선형 순회하며 각 방의 `Defenders`가 `DamageFormula.Apply`로 요격(HP는 로컬 변수로만
+> 추적, 원본 `Attacker`/`RoomNode`는 불변 유지). 모든 방을 생존 통과하면 **코어 앞 1칸**에서 주인공이
+> `DamageFormula.Resolve`로 단독 요격(명중/치명 판정 포함, §13.1의 "코어 앞 1칸 배치" 개념을 이 함수 내부
+> 로직으로 반영 — 별도 배치 데이터는 아직 없음). 몹의 반격으로 인한 주인공 피해(문서의 "몹도 반격받아... 양방향")는
+> **미구현**(주인공은 이 슬라이스에서 순수 요격자, HP/방어 소모 없음).
+> 같은 시드+같은 배치+같은 웨이브 → 같은 `CombatResult`(rng 호출 순서 고정) — 순수함수·결정론.
+
 ### 4.5 처치 vs 포획 분기
 - 처치와 별개로 **제압(포획)** 판정. 조건: 함정으로 격파(마르타), 심부유인+주인공STR(드보라), 서큐버스 보유(아그네스) 등.
 - 포획 시 침입자는 죽지 않고 `RunState.Captives` + 감옥으로. → 로스터 이벤트 + 인과율(레벨재료).
 - **처치 vs 포획 = 골드 vs 성장 트레이드오프** (§6.2 약탈골드 참고).
 
+> **구현(단순화, 07-A2):** `CombatResolver`는 침입자가 처치되는 순간의 방이 `HasTrap == true`이고
+> `attacker.CanBeCaptured`(병종 데이터)이면 `Captured`, 아니면 `Killed`로 분류. 문서에 예시된 히로인별 개별
+> 포획조건(마르타=함정, 드보라=심부유인+STR, 아그네스=서큐버스 보유 등)은 **미구현** — 현재는 "함정 존재 여부"
+> 하나로만 분기하는 최소구현.
+
 ### 4.6 웨이브 종류
 - **10일 주기 제국군**: 정기. 신앙 계열(성기사·성녀·이단심문관) 편향. 서사의 "정기 배달".
 - **비정기 모험가**: 랜덤. 병종 다양, 골드 드랍 편향.
+
+> **미구현(07-A2 기준):** `WaveDef`는 `Intruders`(병종별 수량 리스트)만 가지며 `Kind`(제국군/모험가) 구분 필드가
+> 없음. 웨이브 종류별 편향·생성 로직은 07-B/C 스코프.
 
 ---
 
@@ -372,6 +433,31 @@ SpendPriority    { 내구도>레벨업>여관투자>몹강화>가챠 }
 > - `MetaProjection.ProjectHeroStats/ProjectHeroTotal` 로 주요 스탯·총합을 VN 변수에 읽기전용 투영(변수명 주입).
 > - **미구현(다음 슬라이스):** 전투/데미지 공식(07-A2), 인과율 수급/저금(07-C), 초기 라이브 시딩·투영 실제 배선. 곡선 수치는 초기 추정(플레이테스트 튜닝).
 > 스펙: `docs/superpowers/plans/2026-07-07-vn-engine-8stat-slice.md`.
+
+> **구현 상태(07-A2, 2026-07-08):** 전투 코어(병종/상극/위협기준선/데미지/웨이브 해결)가 `Core/Sim/Combat/`에
+> **순수함수로 구현됨**(전투 결과의 경제·레벨업 반영, 방 배치, Unity 배선은 제외).
+> - **데이터층:** `UnitClassId`·`UnitClassDef`·`UnitClassCatalog`(+`UnitClassIds`) · `ClassMatchup`(병종 상극,
+>   정수%) · `CombatRole`(enum) · `HeroCombatProfile` · `StatCombatWeights`(스탯→전투역할 파생, 밸런스 핵심 테이블).
+> - **공식층:** `ThreatWeights`(WHero/WLoop/WPlaced/WDungeon/BaseOffset — 침입자 위협 기준선 가중치) ·
+>   `ThreatFormula`(`Compute`/`HeroPowerOf`) · `Attacker` · `AttackerFactory` · `DamageFormula`(`Raw`/`Apply`/
+>   `Resolve` + `HitParams`).
+> - **통합층:** `RoomNode` · `WaveDef` · `CombatResult` · `CombatResolver`(`ResolveWave` — 순수함수, 결정론,
+>   웨이브 전체 해결).
+> - **핵심 설계결정 — 두 가중치 테이블 분리:** `ThreatWeights`(침입자가 얼마나 강한가 — 5개 항만)와
+>   `StatCombatWeights`(주인공 8스탯→전투역할 파생, 밸런스 핵심 독립 테이블)는 서로 다른 파일·타입이며 서로
+>   참조만 한다. `ThreatFormula`의 heroPower 입력은 반드시 `StatCombatWeights.Derive(hero).CombatPower` 스칼라를
+>   거쳐야 하며(raw 8스탯 합 직접 대입 금지), `ThreatFormula.HeroPowerOf`가 이 경로를 구조적으로 강제한다.
+> - 정수 결정론(부동소수 없음, `IRandom` 경유), 입력 불변, 데이터 주도, `Core/**` 순수성 유지(UnityEngine/
+>   System.IO 미참조). `CombatResolver.ResolveWave`는 순수함수(같은 시드+같은 입력 → 같은 결과).
+> - **미구현(비스코프, 다음 슬라이스):** 방 배치 예산제·코스트·방 개수 상한(07-B), 골드/인과율 환산·레벨업·약탈
+>   (07-C — `CombatResult`는 처치/포획/코어피격만 담고 골드·인과율 환산은 없음), 여관(07-D), 웨이브 크기 생성
+>   곡선(5~60, 07-B/C), `CreateInitialCampaign` 라이브 시딩·`MetaProjection` 전투 배선·Unity 레이어
+>   (SimController/SO/씬)·세이브 스키마 변경. 방은 선형 최소 가정(`IReadOnlyList<RoomNode>`)이며 그래프/분기
+>   경로 미구현. `avgPlacedMonsterLevel`은 현재 0으로 취급(몹 레벨 데이터 미도입), 주인공은 순수 요격자(주인공
+>   피해 미모델), 크리티컬 배수는 중립(100) 플레이스홀더 — 모두 후속 스코프.
+> - 데이터 값(병종 배수, 상극%, `ThreatWeights`, `StatCombatWeights`)은 전부 **초기 추정 튜닝값**(밸런스
+>   확정치 아님).
+> 스펙: `docs/superpowers/plans/2026-07-07-vn-engine-combat-slice.md`.
 
 ### 13.1 배치 제약
 - 주인공은 **배치 예산(코스트) 제외**로 배치. 대신 **코어룸으로부터 1칸 앞의 방까지만** 배치 가능.
