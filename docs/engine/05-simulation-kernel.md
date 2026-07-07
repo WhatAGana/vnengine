@@ -31,12 +31,18 @@
 | `CommandDef` | Id, DisplayName, Effects(List&lt;ResourceDelta&gt;) | 커맨드 = 자원 델타 묶음 |
 | `RunState` | Day, Resources(Id→int) | 한 회차 내 한 시점의 상태(불변) |
 | `TurnEngine` | (규칙 소유) | 검증·초기상태·커맨드 실행 |
-| `MetaState` | LoopCount | 회차를 넘어 유지되는 상태(불변) |
+| `MetaState` | LoopCount, Heroes(`HeroStats`) | 회차를 넘어 유지되는 상태(불변) |
+| `StatDef` | Id, DisplayName, StartValue, Cap | 주인공 스탯 정의(예: STR 시작10, 상한999) |
+| `HeroStats` | 불변 `Dictionary<StatId,int>` | 주인공 8스탯 상태(불변, 회차 넘어 캐리포워드) |
+| `StatCostCurve` | `CostAt(int level)` | 스탯 강화 비용 곡선(구간지수 데이터) |
+| `StatUpgrade` | `Upgrade(HeroStats, StatDef, StatCostCurve, int)`(순수) | 인과율→스탯강화 순수함수 |
 | `CampaignState` | Meta, Run | `MetaState`+`RunState` 2층 컨테이너(세이브 단위) |
 | `LoopEngine` | (`TurnEngine` 소유) | `CreateInitialCampaign`·`ExecuteCommand`·`StartNewLoop` |
-| `CampaignSaveData` | version, loopCount, day, List&lt;ResEntry&gt;{id,value} | `CampaignState`의 평면 직렬화 형태(`[Serializable]`, JsonUtility 호환·딕셔너리 없음) |
+| `CampaignSaveData` | version, loopCount, day, List&lt;ResEntry&gt;{id,value}, List&lt;StatEntry&gt;{id,value} | `CampaignState`의 평면 직렬화 형태(`[Serializable]`, JsonUtility 호환·딕셔너리 없음) |
 | `CampaignSave` | `Capture(CampaignState)→CampaignSaveData` / `Restore(CampaignSaveData)→CampaignState` | 순수 캡처/복원(IO 없음). version 불일치 시 `VnRuntimeException` |
-| `MetaProjection` | `Project(MetaState, GameState, string loopCountVar)` | 메타→VN 읽기전용 투영(LoopCount→변수) |
+| `MetaProjection` | `Project(MetaState, GameState, string loopCountVar)` / `ProjectHeroStats`/`ProjectHeroTotal` | 메타→VN 읽기전용 투영(LoopCount, 주인공 스탯·총합→변수) |
+
+> 주인공 8스탯이 메타(`MetaState.Heroes`)에 귀속되고 세이브·VN 투영에 연결됨(전투는 07).
 
 ---
 
