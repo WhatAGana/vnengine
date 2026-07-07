@@ -14,6 +14,10 @@
 > `Regress` 내용 로직(계승·편지·진실플래그·미갈)과 캠페인+VN VM 통합 세이브는 **여전히 미구현**. 스펙:
 > `docs/superpowers/specs/2026-07-07-vn-engine-sim-persistence-slice-design.md`.
 
+> **착수 상태(2026-07-07, 8스탯)**: 주인공 8스탯 **데이터 골격**이 올라옴 — `MetaState.Heroes`(불변 `HeroStats`, 회차 넘어 캐리포워드),
+> 인과율→스탯강화 순수함수(`StatUpgrade`+데이터 곡선 `StatCostCurve`), 세이브 평면직렬화, VN 스탯 투영(`MetaProjection`). **전투·karma수급·라이브시딩은 미구현.**
+> 스펙: `docs/superpowers/plans/2026-07-07-vn-engine-8stat-slice.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---

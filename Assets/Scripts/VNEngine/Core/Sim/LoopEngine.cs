@@ -26,11 +26,11 @@ namespace VNEngine
         }
 
         // 회차 전이(최소): LoopCount+1, Run 은 새 초기 Run 으로 리셋.
-        // 계승·편지·진실플래그 등 '내용' 갱신은 이후 슬라이스에서 이 함수를 확장(Regress).
+        // 주인공 성장은 메타 — 회차를 넘어 유지(Heroes 캐리포워드). 계승·편지 등 '내용' 갱신은 이후 슬라이스(Regress).
         public CampaignState StartNewLoop(CampaignState campaign)
         {
             if (campaign == null) throw new System.ArgumentNullException(nameof(campaign));
-            var newMeta = new MetaState(campaign.Meta.LoopCount + 1);
+            var newMeta = new MetaState(campaign.Meta.LoopCount + 1, campaign.Meta.Heroes);
             return new CampaignState(newMeta, _turnEngine.CreateInitialState());
         }
     }
