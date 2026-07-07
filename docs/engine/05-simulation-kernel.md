@@ -44,6 +44,12 @@
 
 > 주인공 8스탯이 메타(`MetaState.Heroes`)에 귀속되고 세이브·VN 투영에 연결됨(전투는 07).
 
+> **전투 코어(07-A2):** `Core/Sim/Combat/**`에 `UnitClassDef`·`ClassMatchup`·`CombatRole`·`HeroCombatProfile`·
+> `StatCombatWeights`·`ThreatWeights`·`ThreatFormula`·`Attacker`·`AttackerFactory`·`DamageFormula`·`RoomNode`·
+> `WaveDef`·`CombatResult`·`CombatResolver`(`ResolveWave`)가 순수함수로 구현됨. 이 문서의 커널 루프(`TurnEngine`/
+> `LoopEngine`/`RunState`)와는 **아직 배선되지 않은 독립 모듈**(호출측이 직접 `ResolveWave`를 부른다). 상세:
+> [07 디펜스 전투 & 경제](07-defense-combat.md).
+
 ---
 
 ## 3. `TurnEngine` — 규칙 엔진
@@ -113,7 +119,8 @@ RunState ExecuteCommand(RunState state, string commandId)
 같은 `Core/Sim` + `Unity/Sim` 패턴으로 확장 예정:
 - 클램프/최소값/**파산·승패 판정**(기한 내 목표 달성 = 엔딩).
 - 커맨드 효과 **수식화**(ExprEval 재사용, VN GameState 접합).
-- **디펜스 전투**(던전 방·함정·몬스터 배치·요격) — 게임의 핵심 루프.
+- **디펜스 전투**(던전 방·함정·몬스터 배치·요격) — 게임의 핵심 루프. 공식·해결기 자체(`Core/Sim/Combat/**`,
+  §2 표 참고)는 07-A2에서 구현됐으나, 방 배치 예산제·경제 환산·커널 루프(`RunState`)·Unity 배선은 아직 없음.
 - 관계/호감도 + 해금 플래그, 건설/업그레이드.
 - `CampaignState` 단독 디스크 세이브는 완료(`CampaignSave`+`CampaignSaveSystem`). 남은 것: 04의 **VN VM 세이브와 통합**한
   단일 세이브(캠페인+VN 상태를 한 슬롯에)([04](04-save-load-format.md)).
