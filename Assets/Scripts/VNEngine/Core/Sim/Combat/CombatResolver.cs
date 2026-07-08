@@ -30,7 +30,7 @@ namespace VNEngine
         public static CombatResult ResolveWave(
             RunState run,
             WaveDef wave,
-            IReadOnlyList<RoomNode> rooms,
+            RoomGraph graph,
             HeroStats hero,
             StatCombatWeights statWeights,
             ThreatWeights threatWeights,
@@ -42,7 +42,7 @@ namespace VNEngine
         {
             if (run == null) throw new ArgumentNullException(nameof(run)); // run: 브리프 시그니처가 요구해 보존됨 — 이 슬라이스 로직에서는 소비되지 않음.
             if (wave == null) throw new ArgumentNullException(nameof(wave));
-            if (rooms == null) throw new ArgumentNullException(nameof(rooms));
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
             if (hero == null) throw new ArgumentNullException(nameof(hero));
             if (statWeights == null) throw new ArgumentNullException(nameof(statWeights));
             if (threatWeights == null) throw new ArgumentNullException(nameof(threatWeights));
@@ -84,7 +84,7 @@ namespace VNEngine
                 for (var i = 0; i < entry.Count; i++)
                 {
                     var attacker = AttackerFactory.Create(cls, threatBase, rng);
-                    var outcome = ResolveIntruder(attacker, rooms, heroProfile, heroHitParams, matchup, rng);
+                    var outcome = ResolveIntruder(attacker, graph.Path, heroProfile, heroHitParams, matchup, rng);
 
                     switch (outcome.Result)
                     {
