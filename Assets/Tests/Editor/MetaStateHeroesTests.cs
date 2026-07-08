@@ -45,5 +45,19 @@ namespace VNEngine.Tests
             Assert.AreEqual(2, next.Meta.LoopCount, "회차 증가");
             Assert.AreEqual(300, next.Meta.Heroes.Get(StatIds.STR), "주인공 성장은 회차 넘어 유지(메타)");
         }
+
+        [Test]
+        public void StartNewLoopCarriesInnForward()
+        {
+            var engine = new LoopEngine(MakeTurnEngine());
+            var campaign = new CampaignState(new MetaState(1, HeroStats.Empty, new InnState(4, 7, 3)), new RunState(3, new Dictionary<string, int>()));
+
+            var next = engine.StartNewLoop(campaign);
+
+            Assert.AreEqual(2, next.Meta.LoopCount, "회차 증가");
+            Assert.AreEqual(4, next.Meta.Inn.Staff, "여관은 메타 — 회차 넘어 유지");
+            Assert.AreEqual(7, next.Meta.Inn.Decor, "여관은 메타 — 회차 넘어 유지");
+            Assert.AreEqual(3, next.Meta.Inn.MenuLevel, "여관은 메타 — 회차 넘어 유지");
+        }
     }
 }

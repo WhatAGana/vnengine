@@ -27,6 +27,19 @@
 > 상세: [07 디펜스 전투](07-defense-combat.md) §4·§14·§15.3.
 > 스펙: `docs/superpowers/plans/2026-07-08-vn-engine-07b-placement-capture.md`.
 
+> **착수 상태(2026-07-08, 07-D)**: `MetaState.Inn`(`InnState`: `Staff`/`Decor`/`MenuLevel`, 불변, `Empty`·
+> `WithDecor(int)`)가 실제로 구현됨 — §1.2 메타 상태 표의 "여관상태(직원/내구/메뉴)"가 여기 해당(07 문서 §7
+> 참고). `Heroes`와 동일한 패턴으로 메타 귀속·회차 캐리포워드: `MetaState`가 3-arg 생성자
+> (`loopCount, heroes, inn`)를 얻었고(1-arg/2-arg 생성자는 하위호환 유지, 미지정 시 `Inn=InnState.Empty`),
+> `LoopEngine.StartNewLoop`가 `Inn`을 다음 회차로 그대로 이관한다(§3 "메타 갱신"의 누적 원칙과 동일 — 여관은
+> 회귀해도 소실되지 않음). 세이브: `CampaignSaveData`에 `innStaff`/`innDecor`/`innMenuLevel`(int) 3필드
+> 추가(§4 "평면 구조" 원칙 그대로) — **additive, `CampaignSaveVersion` 불변**(구세이브에 없는 필드는 기본값
+> 0으로 역직렬화 → `Decor=0`이 되어 여관 수입 게이트가 닫힌 안전한 기본 상태로 자연 폴백). 수급 산식
+> (`InnIncomeRule.Compute`)·자연감소(`InnUpkeepRule.Decay`) 자체는 순수함수로 존재하나, 이걸 실제로 매 턴/루프
+> 호출해 `RunState` 자원에 반영하는 배선과 `MetaProjection`(§5) 투영은 여전히 **미구현**.
+> 상세: [07 디펜스 전투](07-defense-combat.md) §7.
+> 스펙: `docs/superpowers/plans/2026-07-08-vn-engine-07d-inn-income.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---
