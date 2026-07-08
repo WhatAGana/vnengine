@@ -13,6 +13,9 @@ namespace VNEngine
                 version = CampaignSaveData.CampaignSaveVersion,
                 loopCount = c.Meta.LoopCount,
                 day = c.Run.Day,
+                innStaff = c.Meta.Inn.Staff,
+                innDecor = c.Meta.Inn.Decor,
+                innMenuLevel = c.Meta.Inn.MenuLevel,
             };
             foreach (var kv in c.Run.Resources)
                 data.resources.Add(new ResEntry { id = kv.Key, value = kv.Value });
@@ -37,9 +40,10 @@ namespace VNEngine
                 foreach (var e in data.stats)
                     statDict[new StatId(e.id)] = e.value;
             var heroes = new HeroStats(statDict);
+            var inn = new InnState(data.innStaff, data.innDecor, data.innMenuLevel);
 
-            // RunState 생성자가 res 를, HeroStats 생성자가 statDict 를 다시 방어적 복사 → 세이브데이터 리스트와 참조 분리.
-            return new CampaignState(new MetaState(data.loopCount, heroes), new RunState(data.day, res));
+            // RunState/HeroStats/InnState 생성자가 각각 방어적 복사 → 세이브데이터와 참조 분리.
+            return new CampaignState(new MetaState(data.loopCount, heroes, inn), new RunState(data.day, res));
         }
     }
 }

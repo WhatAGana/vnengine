@@ -27,5 +27,10 @@ namespace VNEngine
         public int day;                       // Run.Day
         public List<ResEntry> resources = new List<ResEntry>(); // Run.Resources 평면화
         public List<StatEntry> stats = new List<StatEntry>();   // Meta.Heroes 평면화(StatId→string). additive: 구세이브는 빈 리스트→빈 Heroes.
+
+        // Meta.Inn 평면화(additive: 구세이브는 누락 int→JsonUtility 기본 0→Decor=0 게이트닫힘). 버전 불변.
+        public int innStaff;
+        public int innDecor;
+        public int innMenuLevel;
     }
 }
