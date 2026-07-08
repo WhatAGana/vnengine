@@ -18,6 +18,15 @@
 > 인과율→스탯강화 순수함수(`StatUpgrade`+데이터 곡선 `StatCostCurve`), 세이브 평면직렬화, VN 스탯 투영(`MetaProjection`). **전투·karma수급·라이브시딩은 미구현.**
 > 스펙: `docs/superpowers/plans/2026-07-07-vn-engine-8stat-slice.md`.
 
+> **착수 상태(2026-07-08, 07-B)**: §1.1의 `RunState.Captives`가 실제로 구현됨 — `RunState.Captives`
+> (`IReadOnlyList<Captive>`, 생성자 미지정 시 빈 리스트 기본값)와 `Combat/CaptiveLedger.Accumulate(run, result)`
+> (순수함수, `CombatResult.Captured`를 누적한 **새** `RunState` 반환, 입력 불변)가 그 실체. **세이브 직렬화는
+> 미포함**(`CampaignSave`/`CampaignSaveData`에 `Captives` 필드 없음 — §4 세이브 통합 대상에서 여전히 제외)이고,
+> `CaptiveLedger.Accumulate`를 실제로 호출하는 배선(전투 해결 후 자동 누적)도 아직 없다(현재는 독립적으로
+> 테스트되는 순수함수 뿐). §1.1 표의 나머지 행(`Rooms`/`Summoned`/`WaveProgress`)은 여전히 **미구현**.
+> 상세: [07 디펜스 전투](07-defense-combat.md) §4·§14·§15.3.
+> 스펙: `docs/superpowers/plans/2026-07-08-vn-engine-07b-placement-capture.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---

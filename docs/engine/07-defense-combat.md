@@ -154,8 +154,12 @@ dmg = max(1, dmg)                # 0 데미지 금지
 ## 4. 방 그래프 & 배치 예산제
 
 > **구현 상태(07-A2):** §4.4(진행·요격, 결정론)와 §4.5(처치/포획 분기)는 `RoomNode`+`CombatResolver.ResolveWave`로
-> **단순화된 형태로 구현됨**. §4.1(방 그래프/상한)·§4.2(배치 예산제)·§4.3(코스트=레어도)·§4.6(웨이브 종류 구분)은
-> **미구현**(07-B/C 스코프) — 아래 각 하위섹션에 표기.
+> **단순화된 형태로 구현됨**.
+>
+> **구현 상태(07-B, 2026-07-08) 추가:** §4.1(방 그래프/상한)은 `RoomGraph`+`Economy/DungeonRoomRule.RoomsCap`로,
+> §4.2(배치 예산제)는 `PlacementValidator`+`PlacementBuilder`로, §4.3(코스트=레어도)는 `MonsterDef.Cost`+
+> `MonsterCatalog`로, §4.5(처치/포획 분기)는 `CaptureRule`(데이터주도 3트리거)로 각각 구현됨. §4.6(웨이브 종류
+> 구분)만 여전히 **미구현**(07-C 스코프) — 아래 각 하위섹션에 표기.
 
 ### 4.1 방 구조 (가변, 던전레벨이 상한)
 - 방은 **그래프 노드**. 첫 슬라이스는 선형(1→2→3→4→5코어), 자료구조는 분기·병렬 경로 확장 가능한 그래프로 열어둠.
@@ -167,6 +171,19 @@ dmg = max(1, dmg)                # 0 데미지 금지
 > 방 상한·던전레벨 연동·그래프/분기 구조는 없음 — `CombatResolver.ResolveWave`는 `IReadOnlyList<RoomNode>`를
 > **선형 순회**만 한다(첫 슬라이스는 문서가 예고한 "선형" 그대로, 그래프 확장은 07-B 이후).
 
+> **구현(07-B, 2026-07-08):** `RoomId`(string 래핑 값타입)·`RoomNode`(Id/Defenders/HasTrap/`NextRooms`,
+> 방어적 복사로 불변)·`RoomGraph`(Rooms/Entry/Path)가 그래프를 구현. `Path`는 생성 시 1회 계산되는 불변 리스트로,
+> `Entry`에서 각 방의 `NextRooms[0]`을 따라 terminal(`NextRooms`가 빈 방)까지 **결정론 순회**한 결과다(사이클은
+> 방문집합으로 차단해 방어). `CoreFrontRoom`(= `Path`의 마지막 원소)이 "코어앞1칸" 방이며, **코어 자체는 노드로
+> 존재하지 않고 암묵적**으로 그 다음 지점으로 취급된다(§4.4 코어 도달 판정과 동일 개념). `RoomGraph.Linear
+> (contentRooms)`가 선형 던전(각 방 `NextRooms` 1개, `r0→r1→…`)을 조립하는 편의 생성자 — 문서가 예고한 "가변
+> 방 배치, 자료구조는 분기·병렬 경로 확장 가능한 그래프로 열어둠"의 그래프 골격이 여기서 성립.
+> 방 개수 상한은 `Economy/DungeonRoomRule.RoomsCap(dungeonLevel) = 3 + dungeonLevel*2`(문서 §4.1 수식과 동일,
+> lv1=5/lv2=7/lv3=9…)와 `CanBuildRoom(currentRoomCount, dungeonLevel)`로 구현 — **상한 규칙만** 순수 구현이며,
+> "상한과 실제 건설(골드 소모)은 분리"의 후자(골드 소모)는 여전히 **미구현**(07-C 스코프, 타입 주석에도 명시).
+> `CombatResolver.ResolveWave`는 이제 `graph.Path`(결정론적 단일 경로)를 순회 — 그래프 자체는 분기를 표현할 수
+> 있으나, 침입자가 분기 중 경로를 "선택"하는 로직(§4.3 "경로예측 게임")은 여전히 미구현.
+
 ### 4.2 배치 예산제 (포인트 바이)
 - **총 예산 = 현재 열려있는 방 개수 × 3.** (최대 방이 아니라 **현재 방** 기준 — 최대 기준이면 "방 최소, 몹 최대"가 정답이 돼 방 시스템이 죽음)
 - 각 몹은 **코스트(레어도)**를 가짐. 예: 임프1, 고블린1, 오크2, 하이오크3, 서큐버스3, 데스나이트4, 고위마족5.
@@ -175,6 +192,16 @@ dmg = max(1, dmg)                # 0 데미지 금지
 
 > **미구현(07-A2 기준):** `RoomNode.Defenders`는 이미 배치가 끝난 `Attacker` 목록을 그대로 받아 스냅샷할 뿐,
 > 예산·코스트·`MonsterDef` 개념은 없음. "배치 결과를 소비"만 하고 "배치 자체"는 07-B 스코프.
+
+> **구현(07-B, 2026-07-08):** `PlacementValidator.Validate(plan, graph, catalog)` — 예산 =
+> `graph.Rooms.Count * BudgetPerRoom`(`BudgetPerRoom = 3`, 문서의 "방 개수×3"과 일치, **현재 열린 방 기준**·
+> 최대 방 아님). `PlacementPlan`(`MonsterPlacement[]`(Room+Monster) + `HasHero`/`HeroRoom`)을 검증해 (1) 코스트합
+> (카탈로그 조회) ≤ 예산, (2) 각 배치가 그래프에 실존하는 방 id인지, (3) `HasHero`면 `HeroRoom`이
+> `graph.CoreFrontRoom.Id`와 일치하는지(§13.1)까지 확인한다 — 실패해도 예외가 아니라
+> `PlacementResult(IsValid=false, Error: OverBudget/UnknownMonster/InvalidRoom/HeroRoomNotCoreFront)`로 반환
+> (UI 게이트용, "두 겹 제약"이 그대로 코드의 두 검사 단계로 반영됨). `PlacementBuilder.Apply`가 검증 통과한
+> plan을 실제로 각 방의 `Defenders`에 실체화한 **새** `RoomGraph`를 반환(순수 함수, 입력 plan/graph/catalog 불변).
+> 두 타입 모두 "배치 자체"만 다루며, 배치 결과의 소비(`CombatResolver`)와는 여전히 분리돼 있다.
 
 ### 4.3 코스트=레어도 원칙
 - **코스트 대비 효율은 대체로 평평하되, 구간마다 다른 강점**:
@@ -185,6 +212,15 @@ dmg = max(1, dmg)                # 0 데미지 금지
 - **몰아넣기 vs 분산**: 몰아넣기=한 방 화력집중(강적 처리, 다른 방 빔), 분산=전 방 마모(물량 대응, 강적 놓칠 수). 방 그래프 분기 구조면 경로예측 게임으로 심화.
 
 > **미구현(07-A2 기준):** 코스트/레어도 데이터(`MonsterDef.Cost`)와 예산 배분 로직 자체가 없음(§4.2와 동일 사유).
+
+> **구현(07-B, 2026-07-08):** `MonsterDef`(Id/DisplayName/Cost/BaseHp/BaseAtk/BaseDef/IsCapturingMonster)가
+> 코스트=레어도 데이터를 담고, `MonsterCatalog.Default()`가 1편 방어몹 7종을 데이터화: 임프(1)·고블린(1)·
+> 오크(2)·하이오크(3)·서큐버스(3)·데스나이트(4)·고위마족(5) — 문서 예시("임프1, 고블린1, 오크2, 하이오크3,
+> 서큐버스3, 데스나이트4, 고위마족5")와 코스트 정확히 일치. `Succubus`만 `IsCapturingMonster=true`(아그네스
+> 해금 훅 — §4.5의 포획 트리거 `CapturingMonster`와 직결). `MonsterDef.Id`는 `UnitClassId`를 그대로 재사용해
+> 병종 체계와 단일화(별도 `MonsterId` 타입 미도입). 히로인별 개별 스킬/능력(`Skills[]`)은 08(계승/스킬증여)
+> 스코프로 여전히 미구현. Base 능력치는 던전레벨과 무관한 **flat 고정값**(초기 추정, 실측 튜닝 대상) —
+> 던전레벨 스케일 공식은 아직 없음.
 
 ### 4.4 진행·요격 (결정론)
 ```
@@ -213,6 +249,21 @@ dmg = max(1, dmg)                # 0 데미지 금지
 > 포획조건(마르타=함정, 드보라=심부유인+STR, 아그네스=서큐버스 보유 등)은 **미구현** — 현재는 "함정 존재 여부"
 > 하나로만 분기하는 최소구현.
 
+> **구현(07-B, 2026-07-08):** 위 "함정 존재 여부 하나로만 분기"하던 최소구현을 데이터주도 규칙으로 대체.
+> `CaptureRule`([Flags] `CaptureTrigger { None, Trap, HeroSubdue, CapturingMonster }` + `CaptureContext`)가
+> 처치 시점에 어떤 트리거가 성립했는지 조합으로 판정한다. `CaptureRule.Default()` = 3트리거 전부 활성
+> (`Trap | HeroSubdue | CapturingMonster`), `ShouldCapture(canBeCaptured, ctx) = canBeCaptured &&
+> (Enabled & ctx.Present) != None`. `CombatResolver.ResolveIntruder`가 처치 순간마다 트리거를 조립해 위임한다:
+> 방어몹 요격으로 죽으면 `room.HasTrap`(Trap)과 `defender.IsCapturingMonster`(CapturingMonster)를 조합, 코어앞
+> 1칸에서 주인공 요격으로 죽으면 `HeroSubdue` 단독(함정/포획형몹 존재와 무관하게 항상 성립 — §13.1 "심부유인+
+> 주인공STR" 서사와 대응). **히로인별 개별 포획조건**(마르타=함정, 드보라=심부유인+STR, 아그네스=서큐버스 보유)
+> 그 자체는 여전히 **미구현** — "그 처치가 세 트리거 중 무엇으로 났는가"만 구분할 뿐, 개별 히로인 판정문·STR
+> 수치 조건 등은 다음 슬라이스 스코프.
+> 포획된 개체는 `Captive`(ClassId/IsNamed/ResetPolicy)로 변환돼 `CaptiveLedger.Accumulate(run, result)`를 거쳐
+> `RunState.Captives`에 누적 가능(§13·§14 참고) — **단, 이 호출 배선 자체는 미구현**: `CombatResolver`도 턴
+> 루프도 `CaptiveLedger.Accumulate`를 호출하지 않는다(현재는 독립적으로 테스트되는 순수함수 뿐). §6.2의
+> "포획: 골드 50%+인과율" 경제 환산도 여전히 미구현(07-C 스코프 그대로).
+
 ### 4.6 웨이브 종류
 - **10일 주기 제국군**: 정기. 신앙 계열(성기사·성녀·이단심문관) 편향. 서사의 "정기 배달".
 - **비정기 모험가**: 랜덤. 병종 다양, 골드 드랍 편향.
@@ -231,6 +282,10 @@ dmg = max(1, dmg)                # 0 데미지 금지
 1. **골드 소비**: 자원 전환 레버. 골드는 방건설·가챠·여관과 경쟁.
 2. **포로 방면**: 플레이 방식 레버. 포획 위주 디펜스를 설계해야만 얻음(함정·포획몹 섞기). = 세계관("생명/욕망으로 인과율 해소")의 메커니즘화.
 3. **여관 번영**: 손님 만족 = 인과율 배출(§7). 시뮬에서 이 3번째 축이 성장 정체를 해소함(포로만으론 부족).
+
+> **구현 상태(07-B, 2026-07-08):** 2번(포로 방면) 경로 중 **"포획·수용"** 단계까지만 구현됨 —
+> `RunState.Captives` + `CaptiveLedger.Accumulate`(§14·§15.3 참고). "방면"(포로를 인과율로 전환해 감옥에서
+> 내보내는 로직) 자체는 **미구현**. 1번(골드 소비)·3번(여관 번영) 경로도 여전히 미구현(07-C/07-D 스코프).
 
 ### 5.2 레벨업 비용 (지수 곡선 — 상대화)
 ```
@@ -459,11 +514,30 @@ SpendPriority    { 내구도>레벨업>여관투자>몹강화>가챠 }
 >   확정치 아님).
 > 스펙: `docs/superpowers/plans/2026-07-07-vn-engine-combat-slice.md`.
 
+> **갱신(07-B, 2026-07-08):** 위 07-A2 "미구현" 목록 중 **"방 배치 예산제·코스트·방 개수 상한"은 이제 구현됨**
+> — §4.1~§4.3 참고(`RoomGraph`/`Economy/DungeonRoomRule`/`PlacementValidator`/`PlacementBuilder`/`MonsterDef`/
+> `MonsterCatalog`). 나머지(골드/인과율 환산·레벨업·약탈(07-C), 여관(07-D), 웨이브 크기 생성곡선 5~60,
+> `CreateInitialCampaign` 라이브 시딩·`MetaProjection` 전투 배선·Unity 레이어·세이브 스키마 변경,
+> `avgPlacedMonsterLevel`=0 취급, 크리티컬 배수 중립(100) 플레이스홀더)은 여전히 미구현. `RoomGraph`는 이제
+> 분기를 표현할 수 있는 일반 그래프 구조(`NextRooms[]`)를 갖췄으나, `CombatResolver.ResolveWave`는 여전히
+> `graph.Path`(`NextRooms[0]` 고정 순회, 결정론적 단일 경로)만 소비 — 침입자의 경로 선택(§4.3 "경로예측 게임")은
+> 미구현.
+
 ### 13.1 배치 제약
 - 주인공은 **배치 예산(코스트) 제외**로 배치. 대신 **코어룸으로부터 1칸 앞의 방까지만** 배치 가능.
 - → 주인공 = **최종 방어선**. 앞방은 몹으로, 뚫고 들어온 강적을 코어 앞에서 주인공이 처리.
 - **서사 정합**: 드보라 씬4(심부 유인 + 주인공 직접 제압)와 자동 일치 — 드보라는 코어 근처까지 뚫어야 주인공과 만남.
 - **(미결)** 주인공 사망 처리: 회차 실패(코어 폭주=자폭 회귀)와 연결 검토. 07 구현 중 확정.
+
+> **구현(07-B, 2026-07-08):** `PlacementValidator.Validate`가 이 제약을 그대로 강제한다 — `plan.HasHero=true`일
+> 때 `plan.HeroRoom`이 `graph.CoreFrontRoom.Id`와 다르면 `PlacementError.HeroRoomNotCoreFront`로 거부. 주인공은
+> `PlacementPlan.Monsters`(코스트 대상)에 포함되지 않고 별도 `HasHero`/`HeroRoom` 필드로만 검증되므로 "배치
+> 예산(코스트) 제외"도 구조적으로 성립. **단, 이 검증은 배치 단계(UI 게이트)에서만 작동한다** —
+> `CombatResolver.ResolveWave`의 실제 전투 해결은 `PlacementPlan`/`PlacementResult`를 입력받지 않으며, 항상
+> `graph.Path`의 마지막 방(=`CoreFrontRoom`)에서 무조건 주인공이 요격하는 구조로 되어 있다(§4.4). 즉 "검증된
+> 배치를 어겼을 때 주인공이 코어앞에 없다"는 실패 모드는 아직 표현할 수 없고, 이 슬라이스의 전투 해결은 사실상
+> 주인공이 항상 코어앞에 있다고 가정한다 — 배치 검증과 전투 해결의 배선 통합은 다음 슬라이스 스코프. 주인공
+> 사망(코어 폭주 자폭 회귀 연결) 처리는 여전히 **(미결)**.
 
 ### 13.2 8스탯 (STR/INT/DEX/AGI/HP/MP/DEF/LUK)
 1편부터 **다스탯 전부 노출**(시뮬 10차: 밸런스 성립). 각 스탯 상한 **999**.
@@ -506,6 +580,20 @@ SpendPriority    { 내구도>레벨업>여관투자>몹강화>가챠 }
   - 매번 리셋(회귀=완전 되감기, 서사 정확) + 재공략 단축루트, 또는 메타 플래그로 기억(자동 아군/스킵).
   - 서사(미갈=회귀 인지) 확정 전까지 **생성 로직에 리셋 플래그만 열어두고** 미결. 서사 확정 후 세팅.
 
+> **구현(07-B, 2026-07-08):** "네임드 플래그를 달고 옴"은 생성단계 데이터로 구현됨 — `WaveDef.Entry.IsNamed`
+> (미지정 시 false)가 웨이브 조립 시점의 네임드 지정이고, `AttackerFactory.Create(cls, threatBase,
+> entry.IsNamed, rng)`가 이를 그대로 `Attacker.IsNamed`(7-arg 생성자 확장)에 실어 나른다. 포획 원장에서도
+> `Captive.IsNamed`가 이 구분을 유지 — "감옥 인원(경제)엔 잡졸 포함, 히로인 이벤트는 네임드만 트리거"의 데이터적
+> 전제가 여기서 성립한다(`CaptiveLedger.Accumulate`가 `result.Captured`의 `IsNamed`를 그대로 `Captive`에 옮김).
+> `Captive`에 `ResetPolicy`(enum: `Unspecified`/`ResetEachLoop`/`PersistAcrossLoops`) 필드가 "네임드 회차 리셋
+> 여부" 결정을 위한 **플래그 자리만** 마련됨 — 이 슬라이스는 어떤 값이든 로직으로 강제하지 않고
+> (`CaptiveLedger.Accumulate`는 항상 `ResetPolicy.Unspecified`로 채운다), 위 "생성 로직에 리셋 플래그만 열어두고
+> 미결"과 정확히 대응한다.
+> **미구현:** 5·7주차 확정 네임드 포함, 웨이브 생성 시 네임드 확률 셀렉 자체("웨이브 세팅 시 침입자에 네임드가
+> 확률적으로 포함") — 이 슬라이스의 `CombatResolver`/`AttackerFactory`는 이미 조립된 `WaveDef`(어떤 엔트리가
+> `IsNamed`인지 이미 결정된 입력)를 받아 해결만 하므로, 웨이브 조립(생성) 로직 자체는 여전히 07-B/C 미구현
+> 범위 그대로다.
+
 ---
 
 ## 14. 인과율 = 통합 자원 (시뮬 7·8차)
@@ -532,6 +620,17 @@ SpendPriority    { 내구도>레벨업>여관투자>몹강화>가챠 }
 |---|---|---|
 | 인과율 저금(bank) 잔액, 주인공 8스탯 | **메타** | 회차 넘어 유지(주인공 성장은 영속) |
 | 회차 내 포로 방면량·여관 손님량(당회차 수급) | **런** | 회차마다 집계 |
+
+> **구현(07-B, 2026-07-08):** "회차 내 포로 방면량" 행 중 **방면 이전 단계(포획·수용)**의 데이터가 실구현됨 —
+> `RunState.Captives`(`IReadOnlyList<Captive>`, 생성자 미지정 시 빈 리스트 기본값)가 런 귀속 포로 목록이고,
+> `CaptiveLedger.Accumulate(run, result)`(순수함수, `run`/`result` 불변, `CombatResult.Captured`를 누적한 새
+> `RunState` 반환)가 그 축적 로직이다(06 §1.1 상태표 참고).
+> **미구현:** (a) "방면"(release) 자체 — 포로를 인과율로 전환하고 감옥에서 내보내는 로직이 없다(§5.1 "포로
+> 방면" 레벨업 경로, §15.1 "감옥(포로 방면)" 수급처 모두 미배선, 인과율 저금(bank) 개념 자체가 코드에 없음).
+> (b) 포로 목록의 **세이브 직렬화** — `CampaignSave`/`CampaignSaveData`에 `Captives` 필드가 없다(06 §4 세이브
+> 통합 대상에서 여전히 제외). (c) `CaptiveLedger.Accumulate`를 실제로 호출하는 배선 — `CombatResolver`도 턴
+> 루프(`LoopEngine`)도 이 함수를 호출하지 않는다(현재는 독립적으로 테스트되는 순수함수일 뿐, 전투 결과 →
+> RunState 갱신 파이프라인에 연결되지 않음).
 
 ---
 
