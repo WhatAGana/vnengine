@@ -44,8 +44,8 @@ namespace VNEngine.Tests
             var threatWeights = FixedThreat(30);
             var matchup = NeutralMatchup();
 
-            var a = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, threatWeights, catalog, matchup, dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(777));
-            var b = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, threatWeights, catalog, matchup, dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(777));
+            var a = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(777));
+            var b = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(777));
 
             Assert.AreEqual(a.CoreHit, b.CoreHit);
             Assert.AreEqual(a.Killed.Count, b.Killed.Count);
@@ -67,7 +67,7 @@ namespace VNEngine.Tests
             var hero = Stats((StatIds.STR, 1000), (StatIds.DEX, 100));
             var threatWeights = FixedThreat(50); // 침입자 def/hp <= 55 로 고정 -> 1000 데미지에 항상 즉사.
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(1));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(1));
 
             Assert.IsFalse(result.CoreHit);
             Assert.AreEqual(1, result.Killed.Count);
@@ -84,7 +84,7 @@ namespace VNEngine.Tests
             var hero = Stats(); // 스탯 전무 -> HitRating=0 -> 항상 빗나감(회피0, roll>=1이므로 threshold=0 초과).
             var threatWeights = FixedThreat(50);
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(1));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(1));
 
             Assert.IsTrue(result.CoreHit);
             Assert.AreEqual(0, result.Killed.Count);
@@ -104,11 +104,28 @@ namespace VNEngine.Tests
             var rooms = new List<RoomNode> { trapRoom };
             var threatWeights = FixedThreat(10); // 침입자 hp/def <= 15 로 고정 -> 100000 데미지에 항상 즉사.
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
 
             Assert.AreEqual(1, result.Captured.Count);
             Assert.AreEqual(0, result.Killed.Count);
             Assert.IsFalse(result.CoreHit);
+        }
+
+        [Test]
+        public void CapturingMonsterFinishCapturesEvenWithoutTrap()
+        {
+            var capturable = ClassOf("Cap", 100, 100, 100, canBeCaptured: true);
+            var catalog = new List<UnitClassDef> { capturable };
+            var wave = OneWave(capturable.Id, 1);
+            // 함정 없음, 방어몹은 포획형(서큐버스류) + 즉사 화력.
+            var succ = new Attacker(MonsterIds.Succubus, 999, 100000, 10, false, isCapturingMonster: true);
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: false) });
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(5));
+
+            Assert.AreEqual(1, result.Captured.Count, "포획형 몹의 마지막 타격 → 함정 없이도 포획");
+            Assert.AreEqual(0, result.Killed.Count);
         }
 
         [Test]
@@ -121,7 +138,7 @@ namespace VNEngine.Tests
             var rooms = new List<RoomNode> { trapRoom };
             var threatWeights = FixedThreat(10);
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
 
             Assert.AreEqual(1, result.Killed.Count);
             Assert.AreEqual(0, result.Captured.Count);
@@ -143,9 +160,9 @@ namespace VNEngine.Tests
             var strBoosted = Stats((StatIds.DEX, 100), (StatIds.STR, 1000)); // PhysicalAttack=1000(항상 즉사)
             var hpBoosted = Stats((StatIds.DEX, 100), (StatIds.STR, 10), (StatIds.HP, 5000)); // PhysicalAttack 은 STR 만 반영 -> baseline 과 동일해야 함.
 
-            var baselineResult = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, baseline, statWeights, threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
-            var strResult = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, strBoosted, statWeights, threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
-            var hpResult = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hpBoosted, statWeights, threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
+            var baselineResult = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), baseline, statWeights, threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
+            var strResult = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), strBoosted, statWeights, threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
+            var hpResult = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hpBoosted, statWeights, threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(9));
 
             Assert.AreEqual(0, baselineResult.Killed.Count, "약한 STR 은 침입자를 절대 못 죽여야 함(제곱분기 데미지 << hp)");
             Assert.AreEqual(5, strResult.Killed.Count, "STR 대폭 상승 -> PhysicalAttack 상승 -> 전원 즉사");
@@ -169,7 +186,7 @@ namespace VNEngine.Tests
             var hero = Stats(); // 무력한 주인공: PhysicalAttack=0, HitRating=0(항상 빗나감).
             var threatWeights = FixedThreat(50);
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(3));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(3));
 
             Assert.IsTrue(result.CoreHit);
             Assert.AreEqual(0, result.Killed.Count);
@@ -190,15 +207,18 @@ namespace VNEngine.Tests
             var threatWeights = FixedThreat(10);
             var matchup = NeutralMatchup();
 
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(null, wave, rooms, hero, statWeights, threatWeights, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), null, rooms, hero, statWeights, threatWeights, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, null, hero, statWeights, threatWeights, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, null, statWeights, threatWeights, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, null, threatWeights, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, null, catalog, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, threatWeights, null, matchup, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, threatWeights, catalog, null, 1, 1, new SeededRandom(1)));
-            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, statWeights, threatWeights, catalog, matchup, 1, 1, null));
+            var captureRule = CaptureRule.Default();
+
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(null, wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), null, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, null, hero, statWeights, threatWeights, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), null, statWeights, threatWeights, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, null, threatWeights, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, null, catalog, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, null, matchup, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, null, captureRule, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, null, 1, 1, new SeededRandom(1)));
+            Assert.Throws<ArgumentNullException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, statWeights, threatWeights, catalog, matchup, captureRule, 1, 1, null));
         }
 
         [Test]
@@ -209,7 +229,7 @@ namespace VNEngine.Tests
             var wave = OneWave(new UnitClassId("Unknown"), count: 1);
             var rooms = new List<RoomNode>();
 
-            Assert.Throws<VnRuntimeException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, rooms, Stats(), StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(), 1, 1, new SeededRandom(1)));
+            Assert.Throws<VnRuntimeException>(() => CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), Stats(), StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), 1, 1, new SeededRandom(1)));
         }
 
         // ---- 순수함수 / 불변성 ----
@@ -224,7 +244,7 @@ namespace VNEngine.Tests
             var hero = Stats((StatIds.STR, 20), (StatIds.DEX, 20));
             var snapshotBefore = new Dictionary<StatId, int>(hero.Values);
 
-            CombatResolver.ResolveWave(EmptyRun(), wave, rooms, hero, StatCombatWeights.Default(), FixedThreat(30), catalog, NeutralMatchup(), 1, 1, new SeededRandom(4));
+            CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), hero, StatCombatWeights.Default(), FixedThreat(30), catalog, NeutralMatchup(), CaptureRule.Default(), 1, 1, new SeededRandom(4));
 
             CollectionAssert.AreEquivalent(snapshotBefore, hero.Values);
         }

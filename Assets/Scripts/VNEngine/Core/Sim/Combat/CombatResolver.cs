@@ -30,24 +30,26 @@ namespace VNEngine
         public static CombatResult ResolveWave(
             RunState run,
             WaveDef wave,
-            IReadOnlyList<RoomNode> rooms,
+            RoomGraph graph,
             HeroStats hero,
             StatCombatWeights statWeights,
             ThreatWeights threatWeights,
             IReadOnlyList<UnitClassDef> classCatalog,
             ClassMatchup matchup,
+            CaptureRule captureRule,
             int dungeonLevel,
             int loopCount,
             IRandom rng)
         {
             if (run == null) throw new ArgumentNullException(nameof(run)); // run: 브리프 시그니처가 요구해 보존됨 — 이 슬라이스 로직에서는 소비되지 않음.
             if (wave == null) throw new ArgumentNullException(nameof(wave));
-            if (rooms == null) throw new ArgumentNullException(nameof(rooms));
+            if (graph == null) throw new ArgumentNullException(nameof(graph));
             if (hero == null) throw new ArgumentNullException(nameof(hero));
             if (statWeights == null) throw new ArgumentNullException(nameof(statWeights));
             if (threatWeights == null) throw new ArgumentNullException(nameof(threatWeights));
             if (classCatalog == null) throw new ArgumentNullException(nameof(classCatalog));
             if (matchup == null) throw new ArgumentNullException(nameof(matchup));
+            if (captureRule == null) throw new ArgumentNullException(nameof(captureRule));
             if (rng == null) throw new ArgumentNullException(nameof(rng));
 
             var classLookup = new Dictionary<UnitClassId, UnitClassDef>(classCatalog.Count);
@@ -83,8 +85,8 @@ namespace VNEngine
 
                 for (var i = 0; i < entry.Count; i++)
                 {
-                    var attacker = AttackerFactory.Create(cls, threatBase, rng);
-                    var outcome = ResolveIntruder(attacker, rooms, heroProfile, heroHitParams, matchup, rng);
+                    var attacker = AttackerFactory.Create(cls, threatBase, entry.IsNamed, rng);
+                    var outcome = ResolveIntruder(attacker, graph.Path, heroProfile, heroHitParams, matchup, captureRule, rng);
 
                     switch (outcome.Result)
                     {
@@ -131,6 +133,7 @@ namespace VNEngine
             HeroCombatProfile heroProfile,
             HitParams heroHitParams,
             ClassMatchup matchup,
+            CaptureRule captureRule,
             IRandom rng)
         {
             var hp = attacker.Hp;
@@ -145,7 +148,10 @@ namespace VNEngine
 
                     if (hp <= 0)
                     {
-                        var captured = attacker.CanBeCaptured && room.HasTrap;
+                        var trigger = CaptureTrigger.None;
+                        if (room.HasTrap) trigger |= CaptureTrigger.Trap;
+                        if (defender.IsCapturingMonster) trigger |= CaptureTrigger.CapturingMonster;
+                        var captured = captureRule.ShouldCapture(attacker.CanBeCaptured, new CaptureContext(trigger));
                         return new IntruderResolution(
                             captured ? IntruderOutcome.Captured : IntruderOutcome.Killed,
                             attacker);
@@ -160,7 +166,12 @@ namespace VNEngine
             hp -= heroDmg;
 
             if (hp <= 0)
-                return new IntruderResolution(IntruderOutcome.Killed, attacker);
+            {
+                // 주인공 코어앞 제압(HeroSubdue) — §4.5 "심부유인+주인공 제압" 트리거. 함정과 무관하게
+                // 포획가능 침입자를 주인공이 직접 처치하면 포획으로 이어질 수 있다(CaptureRule에 위임).
+                var captured = captureRule.ShouldCapture(attacker.CanBeCaptured, new CaptureContext(CaptureTrigger.HeroSubdue));
+                return new IntruderResolution(captured ? IntruderOutcome.Captured : IntruderOutcome.Killed, attacker);
+            }
 
             return new IntruderResolution(IntruderOutcome.ReachedCore, attacker);
         }

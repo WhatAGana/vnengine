@@ -9,14 +9,25 @@ namespace VNEngine
         public int Atk { get; }
         public int Def { get; }
         public bool CanBeCaptured { get; }
+        public bool IsCapturingMonster { get; }   // 방어측 몹이 포획형(서큐버스류)인가. 침입자는 항상 false.
+        public bool IsNamed { get; }              // 네임드(히로인 훅) vs 잡졸(감옥 경제) 구분. 07-C 인과율 수급 전제.
 
-        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured)
+        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured, bool isCapturingMonster, bool isNamed)
         {
             ClassId = classId;
             Hp = hp;
             Atk = atk;
             Def = def;
             CanBeCaptured = canBeCaptured;
+            IsCapturingMonster = isCapturingMonster;
+            IsNamed = isNamed;
         }
+
+        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured, bool isCapturingMonster)
+            : this(classId, hp, atk, def, canBeCaptured, isCapturingMonster, false) { }
+
+        // 편의: 포획형 아님(기존 호출부·침입자 기본).
+        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured)
+            : this(classId, hp, atk, def, canBeCaptured, false, false) { }
     }
 }
