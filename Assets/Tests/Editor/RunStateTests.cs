@@ -26,5 +26,12 @@ namespace VNEngine.Tests
             Assert.AreEqual(3, run.Day);
             Assert.AreEqual(40, run.Resources["money"]);
         }
+
+        [Test]
+        public void CaptivesDefaultsToEmpty()
+        {
+            var run = new RunState(1, new Dictionary<string, int>());
+            Assert.AreEqual(0, run.Captives.Count);
+        }
     }
 }

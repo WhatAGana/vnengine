@@ -85,7 +85,7 @@ namespace VNEngine
 
                 for (var i = 0; i < entry.Count; i++)
                 {
-                    var attacker = AttackerFactory.Create(cls, threatBase, rng);
+                    var attacker = AttackerFactory.Create(cls, threatBase, entry.IsNamed, rng);
                     var outcome = ResolveIntruder(attacker, graph.Path, heroProfile, heroHitParams, matchup, captureRule, rng);
 
                     switch (outcome.Result)

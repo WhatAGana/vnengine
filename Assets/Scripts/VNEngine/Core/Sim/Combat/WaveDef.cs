@@ -11,6 +11,7 @@ namespace VNEngine
         {
             public UnitClassId ClassId;
             public int Count;
+            public bool IsNamed; // 네임드(히로인 훅) vs 잡졸(감옥 경제). 미지정 시 false(기존 initializer 무변경).
         }
 
         public IReadOnlyList<Entry> Intruders { get; }
