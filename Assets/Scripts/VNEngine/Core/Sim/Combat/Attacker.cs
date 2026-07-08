@@ -9,14 +9,20 @@ namespace VNEngine
         public int Atk { get; }
         public int Def { get; }
         public bool CanBeCaptured { get; }
+        public bool IsCapturingMonster { get; }   // 방어측 몹이 포획형(서큐버스류)인가. 침입자는 항상 false.
 
-        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured)
+        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured, bool isCapturingMonster)
         {
             ClassId = classId;
             Hp = hp;
             Atk = atk;
             Def = def;
             CanBeCaptured = canBeCaptured;
+            IsCapturingMonster = isCapturingMonster;
         }
+
+        // 편의: 포획형 아님(기존 호출부·침입자 기본).
+        public Attacker(UnitClassId classId, int hp, int atk, int def, bool canBeCaptured)
+            : this(classId, hp, atk, def, canBeCaptured, false) { }
     }
 }
