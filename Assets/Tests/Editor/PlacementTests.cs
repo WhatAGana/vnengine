@@ -104,5 +104,23 @@ namespace VNEngine.Tests
             Assert.IsTrue(built.Path[2].Defenders[0].IsCapturingMonster, "서큐버스는 포획형 플래그 전달");
             Assert.AreEqual(MonsterIds.Succubus, built.Path[2].Defenders[0].ClassId);
         }
+
+        [Test]
+        public void ValidateAndApply_InvalidPlan_Throws()
+        {
+            // 주인공이 코어앞1칸(r2)이 아닌 r0에 배치 -> HeroRoomNotCoreFront.
+            var plan = new PlacementPlan { Monsters = new List<MonsterPlacement>(), HasHero = true, HeroRoom = new RoomId("r0") };
+            var ex = Assert.Throws<VnRuntimeException>(() => PlacementBuilder.ValidateAndApply(plan, ThreeRooms(), Cat()));
+            StringAssert.Contains("HeroRoomNotCoreFront", ex.Message);
+        }
+
+        [Test]
+        public void ValidateAndApply_ValidPlan_ReturnsGraphWithDefenders()
+        {
+            var plan = Plan(Place("r0", MonsterIds.Imp), Place("r2", MonsterIds.Succubus));
+            var built = PlacementBuilder.ValidateAndApply(plan, ThreeRooms(), Cat());
+            Assert.AreEqual(1, built.Path[0].Defenders.Count);
+            Assert.AreEqual(1, built.Path[2].Defenders.Count);
+        }
     }
 }

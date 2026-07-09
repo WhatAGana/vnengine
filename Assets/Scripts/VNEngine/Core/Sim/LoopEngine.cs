@@ -14,7 +14,8 @@ namespace VNEngine
         // 캠페인 시작: LoopCount=1, Run=초기 Run(Day=1, 자원 StartValue).
         public CampaignState CreateInitialCampaign()
         {
-            return new CampaignState(new MetaState(1), _turnEngine.CreateInitialState());
+            var heroes = HeroStats.FromDefs(StatCatalog.Default());
+            return new CampaignState(new MetaState(1, heroes, InnState.Empty, 0), _turnEngine.CreateInitialState());
         }
 
         // 회차 내 커맨드: Run 만 진행(Day+1, 델타 적용), Meta 는 그대로 통과.

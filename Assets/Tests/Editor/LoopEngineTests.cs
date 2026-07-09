@@ -96,6 +96,19 @@ namespace VNEngine.Tests
         }
 
         [Test]
+        public void CreateInitialCampaign_SeedsEightHeroStats()
+        {
+            var c = Engine().CreateInitialCampaign();
+            var defs = StatCatalog.Default();
+            Assert.AreEqual(defs.Count, c.Meta.Heroes.Values.Count);
+            foreach (var d in defs)
+            {
+                Assert.IsTrue(c.Meta.Heroes.Has(d.Id), $"missing seeded stat: {d.Id}");
+                Assert.AreEqual(d.StartValue, c.Meta.Heroes.Get(d.Id));
+            }
+        }
+
+        [Test]
         public void StartNewLoopCarriesKarmaBankForwardAndIncrementsLoopCount()
         {
             var engine = Engine();

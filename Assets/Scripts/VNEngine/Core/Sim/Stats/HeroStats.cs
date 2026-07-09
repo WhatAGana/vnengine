@@ -42,7 +42,12 @@ namespace VNEngine
         {
             if (defs == null) throw new System.ArgumentNullException(nameof(defs));
             var dict = new Dictionary<StatId, int>();
-            foreach (var d in defs) dict[d.Id] = d.StartValue;
+            foreach (var d in defs)
+            {
+                if (string.IsNullOrEmpty(d.Id.Value))
+                    throw new VnRuntimeException($"StatDef has null/empty StatId.Value (DisplayName: {d.DisplayName})");
+                dict[d.Id] = d.StartValue;
+            }
             return new HeroStats(dict);
         }
     }
