@@ -7,17 +7,22 @@ namespace VNEngine
         public int Day { get; }
         public IReadOnlyDictionary<string, int> Resources { get; }
         public IReadOnlyList<Captive> Captives { get; }
+        public int PullsThisLoop { get; }
 
         public RunState(int day, IReadOnlyDictionary<string, int> resources)
-            : this(day, resources, System.Array.Empty<Captive>()) { }
+            : this(day, resources, System.Array.Empty<Captive>(), 0) { }
 
         public RunState(int day, IReadOnlyDictionary<string, int> resources, IReadOnlyList<Captive> captives)
+            : this(day, resources, captives, 0) { }
+
+        public RunState(int day, IReadOnlyDictionary<string, int> resources, IReadOnlyList<Captive> captives, int pullsThisLoop)
         {
             Day = day;
             var copy = new Dictionary<string, int>(resources.Count);
             foreach (var kv in resources) copy[kv.Key] = kv.Value; // 방어적 복사
             Resources = copy;
             Captives = new List<Captive>(captives ?? System.Array.Empty<Captive>()); // 방어적 복사
+            PullsThisLoop = pullsThisLoop;
         }
     }
 }

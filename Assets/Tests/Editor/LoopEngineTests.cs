@@ -94,5 +94,19 @@ namespace VNEngine.Tests
             var c = engine.CreateInitialCampaign();
             Assert.Throws<VnRuntimeException>(() => engine.ExecuteCommand(c, "nope"));
         }
+
+        [Test]
+        public void StartNewLoopCarriesKarmaBankForwardAndIncrementsLoopCount()
+        {
+            var engine = Engine();
+            var c = new CampaignState(
+                new MetaState(1, HeroStats.Empty, InnState.Empty, 10),
+                engine.CreateInitialCampaign().Run);
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(10, looped.Meta.KarmaBank);
+            Assert.AreEqual(2, looped.Meta.LoopCount);
+        }
     }
 }

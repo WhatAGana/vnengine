@@ -33,5 +33,19 @@ namespace VNEngine.Tests
             var run = new RunState(1, new Dictionary<string, int>());
             Assert.AreEqual(0, run.Captives.Count);
         }
+
+        [Test]
+        public void PullsThisLoop_DefaultsToZero()
+        {
+            var r = new RunState(1, new Dictionary<string, int>());
+            Assert.AreEqual(0, r.PullsThisLoop);
+        }
+
+        [Test]
+        public void PullsThisLoop_RoundTripsThroughFullCtor()
+        {
+            var r = new RunState(1, new Dictionary<string, int>(), System.Array.Empty<Captive>(), 7);
+            Assert.AreEqual(7, r.PullsThisLoop);
+        }
     }
 }

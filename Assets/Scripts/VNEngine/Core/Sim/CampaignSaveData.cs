@@ -32,5 +32,9 @@ namespace VNEngine
         public int innStaff;
         public int innDecor;
         public int innMenuLevel;
+
+        // Meta.KarmaBank / Run.PullsThisLoop (additive: 구세이브는 누락 int→JsonUtility 기본 0). 버전 불변.
+        public int karmaBank;
+        public int pullsThisLoop;
     }
 }

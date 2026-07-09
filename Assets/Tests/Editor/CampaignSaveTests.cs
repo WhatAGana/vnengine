@@ -107,5 +107,45 @@ namespace VNEngine.Tests
             var restored = CampaignSave.Restore(CampaignSave.Capture(Sample())); // Sample()=스탯 없음
             Assert.AreEqual(0, restored.Meta.Heroes.Values.Count);
         }
+
+        private static CampaignState SampleWithKarmaAndPulls()
+        {
+            return new CampaignState(
+                new MetaState(3, HeroStats.Empty, InnState.Empty, 25),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }, System.Array.Empty<Captive>(), 9));
+        }
+
+        [Test]
+        public void KarmaBankAndPullsThisLoopRoundTripThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithKarmaAndPulls()));
+            Assert.AreEqual(25, restored.Meta.KarmaBank);
+            Assert.AreEqual(9, restored.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void KarmaBankAndPullsThisLoopRoundTripThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithKarmaAndPulls());
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(25, restored.Meta.KarmaBank);
+            Assert.AreEqual(9, restored.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void OldSaveMissingKarmaAndPullsFieldsRestoresToZeroWithoutException()
+        {
+            // 구세이브 시뮬레이션: karmaBank/pullsThisLoop 필드가 없던 시절의 JSON(누락 → 기본값 0).
+            var data = CampaignSave.Capture(Sample());
+            data.karmaBank = 0;
+            data.pullsThisLoop = 0;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(0, restored.Meta.KarmaBank);
+            Assert.AreEqual(0, restored.Run.PullsThisLoop);
+        }
     }
 }

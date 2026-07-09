@@ -60,7 +60,7 @@ namespace VNEngine
             foreach (var e in cmd.Effects)
                 res[e.ResourceId] = (res.TryGetValue(e.ResourceId, out var cur) ? cur : 0) + e.Amount;
 
-            return new RunState(state.Day + 1, res);
+            return new RunState(state.Day + 1, res, state.Captives, state.PullsThisLoop);
         }
     }
 }

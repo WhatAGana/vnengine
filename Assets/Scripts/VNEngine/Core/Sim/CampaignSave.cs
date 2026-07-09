@@ -16,6 +16,8 @@ namespace VNEngine
                 innStaff = c.Meta.Inn.Staff,
                 innDecor = c.Meta.Inn.Decor,
                 innMenuLevel = c.Meta.Inn.MenuLevel,
+                karmaBank = c.Meta.KarmaBank,
+                pullsThisLoop = c.Run.PullsThisLoop,
             };
             foreach (var kv in c.Run.Resources)
                 data.resources.Add(new ResEntry { id = kv.Key, value = kv.Value });
@@ -43,7 +45,9 @@ namespace VNEngine
             var inn = new InnState(data.innStaff, data.innDecor, data.innMenuLevel);
 
             // RunState/HeroStats/InnState 생성자가 각각 방어적 복사 → 세이브데이터와 참조 분리.
-            return new CampaignState(new MetaState(data.loopCount, heroes, inn), new RunState(data.day, res));
+            return new CampaignState(
+                new MetaState(data.loopCount, heroes, inn, data.karmaBank),
+                new RunState(data.day, res, System.Array.Empty<Captive>(), data.pullsThisLoop));
         }
     }
 }
