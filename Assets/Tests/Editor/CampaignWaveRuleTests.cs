@@ -211,6 +211,26 @@ namespace VNEngine.Tests
         }
 
         [Test]
+        public void ResolveWave_PreservesPullsThisLoop()
+        {
+            // 07-C review fix: CaptiveLedger.Accumulate가 PullsThisLoop를 0으로 초기화하던 회귀 방지(엔드투엔드).
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 2);
+            var hero = Stats((StatIds.STR, 1000), (StatIds.DEX, 100));
+            var campaign = new CampaignState(
+                new MetaState(1, HeroStats.Empty, InnState.Empty, 0),
+                new RunState(1, new Dictionary<string, int> { { "gold", 0 } }, new List<Captive>(), pullsThisLoop: 3));
+
+            var outcome = CampaignWaveRule.ResolveWave(
+                campaign, ValidHeroOnlyPlan(), wave, ThreeEmptyRooms(), MonsterCat(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
+                CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(5));
+
+            Assert.AreEqual(3, outcome.Campaign.Run.PullsThisLoop, "가챠 카운터가 웨이브 해결로 리셋되면 안 된다");
+        }
+
+        [Test]
         public void ResolveWave_NullArgumentsThrow()
         {
             var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);

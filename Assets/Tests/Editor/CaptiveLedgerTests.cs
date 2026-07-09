@@ -49,5 +49,15 @@ namespace VNEngine.Tests
                 new CombatResult(false, new List<Attacker>(), new List<Attacker> { new Attacker(new UnitClassId("A"), 1, 1, 1, true, false, true) }));
             Assert.AreEqual(ResetPolicy.Unspecified, run.Captives[0].ResetPolicy, "리셋정책은 플래그 자리만(미결)");
         }
+
+        [Test]
+        public void AccumulatePreservesPullsThisLoop()
+        {
+            var run = new RunState(1, new Dictionary<string, int>(), new List<Captive>(), pullsThisLoop: 4);
+            var result = CaptiveLedger.Accumulate(run,
+                new CombatResult(false, new List<Attacker>(), new List<Attacker> { new Attacker(new UnitClassId("A"), 1, 1, 1, true) }));
+
+            Assert.AreEqual(4, result.PullsThisLoop, "Accumulate가 PullsThisLoop를 리셋하면 안 된다(가챠 카운터 회귀 방지)");
+        }
     }
 }

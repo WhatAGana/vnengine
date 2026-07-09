@@ -74,7 +74,8 @@ namespace VNEngine
                 + combat.Captured.Count * LootRule.LootGold(threatBase, true);
             var captureKarma = combat.Captured.Count * LootRule.CaptureKarma(threatBase);
 
-            // (5) 포로 누적 + 골드 자원 반영. Day/PullsThisLoop는 Accumulate가 이미 보존.
+            // (5) 포로 누적 + 골드 자원 반영. Day/PullsThisLoop는 Accumulate가 보존한다(CaptiveLedgerTests.
+            // AccumulatePreservesPullsThisLoop / CampaignWaveRuleTests.ResolveWave_PreservesPullsThisLoop로 회귀 방지).
             var accumulatedRun = CaptiveLedger.Accumulate(campaign.Run, combat);
             var resources = new Dictionary<string, int>(accumulatedRun.Resources);
             resources.TryGetValue(goldResourceId, out var currentGold);
