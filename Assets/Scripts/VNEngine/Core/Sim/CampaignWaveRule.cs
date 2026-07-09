@@ -92,7 +92,7 @@ namespace VNEngine
             var newRun = new RunState(accumulatedRun.Day, resources, accumulatedRun.Captives, accumulatedRun.PullsThisLoop);
 
             // (7) KarmaBank 증가(포획인과율 + 여관인과율) + 여관 감쇠 반영. LoopCount/Heroes 보존.
-            var newMeta = new MetaState(campaign.Meta.LoopCount, campaign.Meta.Heroes, decayedInn, campaign.Meta.KarmaBank + captureKarma + income.Karma);
+            var newMeta = new MetaState(campaign.Meta.LoopCount, campaign.Meta.Heroes, decayedInn, campaign.Meta.KarmaBank + captureKarma + income.Karma, campaign.Meta.DungeonLevel);
 
             // (8) 결과.
             return new WaveOutcome(new CampaignState(newMeta, newRun), combat, gold, captureKarma, income.Gold, income.Karma);

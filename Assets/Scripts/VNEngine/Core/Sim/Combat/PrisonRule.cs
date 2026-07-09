@@ -34,7 +34,7 @@ namespace VNEngine
             int karmaGained = released * ReleaseKarmaPerCaptive;
 
             var newRun = new RunState(run.Day, run.Resources, Array.Empty<Captive>(), run.PullsThisLoop);
-            var newMeta = new MetaState(meta.LoopCount, meta.Heroes, meta.Inn, meta.KarmaBank + karmaGained);
+            var newMeta = new MetaState(meta.LoopCount, meta.Heroes, meta.Inn, meta.KarmaBank + karmaGained, meta.DungeonLevel);
 
             return new PrisonReleaseResult(newRun, newMeta, released, karmaGained);
         }

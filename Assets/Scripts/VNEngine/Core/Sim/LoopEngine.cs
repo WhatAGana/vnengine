@@ -31,7 +31,7 @@ namespace VNEngine
         public CampaignState StartNewLoop(CampaignState campaign)
         {
             if (campaign == null) throw new System.ArgumentNullException(nameof(campaign));
-            var newMeta = new MetaState(campaign.Meta.LoopCount + 1, campaign.Meta.Heroes, campaign.Meta.Inn, campaign.Meta.KarmaBank);
+            var newMeta = new MetaState(campaign.Meta.LoopCount + 1, campaign.Meta.Heroes, campaign.Meta.Inn, campaign.Meta.KarmaBank, campaign.Meta.DungeonLevel);
             return new CampaignState(newMeta, _turnEngine.CreateInitialState());
         }
     }

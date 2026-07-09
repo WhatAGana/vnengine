@@ -48,5 +48,9 @@ namespace VNEngine
 
         // Run.Captives 평면화(additive: 구세이브는 누락 리스트→JsonUtility 기본 null→빈 리스트로 복원). 버전 불변.
         public List<CaptiveEntry> captives = new List<CaptiveEntry>();
+
+        // Meta.DungeonLevel (additive: 구세이브는 누락 int→JsonUtility 기본 0 -> Restore가 0을 1로 보정한다.
+        // DungeonLevel=0은 DungeonLevelRule.LevelUpCost 가 예외를 던지므로 절대 0으로 복원하면 안 됨). 버전 불변.
+        public int dungeonLevel;
     }
 }

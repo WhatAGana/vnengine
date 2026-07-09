@@ -196,5 +196,40 @@ namespace VNEngine.Tests
             Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
             Assert.AreEqual(0, restored.Run.Captives.Count);
         }
+
+        private static CampaignState SampleWithDungeonLevel(int dungeonLevel) =>
+            new CampaignState(
+                new MetaState(3, HeroStats.Empty, InnState.Empty, 0, dungeonLevel),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }));
+
+        [Test]
+        public void DungeonLevelRoundTripsThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithDungeonLevel(5)));
+            Assert.AreEqual(5, restored.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void DungeonLevelRoundTripsThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithDungeonLevel(5));
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(5, restored.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void OldSaveMissingDungeonLevelFieldRestoresToOneWithoutException()
+        {
+            // 구세이브 시뮬레이션: dungeonLevel 필드가 없던 시절의 JSON(누락 → JsonUtility 기본 int 0).
+            // DungeonLevelRule 은 dl<1 을 예외로 다루므로 0이 아니라 1로 복원돼야 한다.
+            var data = CampaignSave.Capture(Sample());
+            data.dungeonLevel = 0;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(1, restored.Meta.DungeonLevel);
+        }
     }
 }

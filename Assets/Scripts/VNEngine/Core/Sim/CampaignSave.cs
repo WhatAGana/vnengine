@@ -18,6 +18,7 @@ namespace VNEngine
                 innMenuLevel = c.Meta.Inn.MenuLevel,
                 karmaBank = c.Meta.KarmaBank,
                 pullsThisLoop = c.Run.PullsThisLoop,
+                dungeonLevel = c.Meta.DungeonLevel,
             };
             foreach (var kv in c.Run.Resources)
                 data.resources.Add(new ResEntry { id = kv.Key, value = kv.Value });
@@ -51,9 +52,13 @@ namespace VNEngine
                 foreach (var e in data.captives)
                     captives.Add(new Captive(new UnitClassId(e.classId), e.isNamed, (ResetPolicy)e.resetPolicy));
 
+            // dungeonLevel: additive 필드 — 구세이브(필드 없던 시절)는 JsonUtility 기본값 0으로 역직렬화된다.
+            // DungeonLevelRule 은 dl<1 을 예외로 다루므로 0/음수는 1로 보정한다.
+            int dungeonLevel = data.dungeonLevel < 1 ? 1 : data.dungeonLevel;
+
             // RunState/HeroStats/InnState 생성자가 각각 방어적 복사 → 세이브데이터와 참조 분리.
             return new CampaignState(
-                new MetaState(data.loopCount, heroes, inn, data.karmaBank),
+                new MetaState(data.loopCount, heroes, inn, data.karmaBank, dungeonLevel),
                 new RunState(data.day, res, captives, data.pullsThisLoop));
         }
     }

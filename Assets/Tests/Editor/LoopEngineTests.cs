@@ -121,5 +121,26 @@ namespace VNEngine.Tests
             Assert.AreEqual(10, looped.Meta.KarmaBank);
             Assert.AreEqual(2, looped.Meta.LoopCount);
         }
+
+        [Test]
+        public void CreateInitialCampaign_DungeonLevelDefaultsToOne()
+        {
+            var c = Engine().CreateInitialCampaign();
+            Assert.AreEqual(1, c.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void StartNewLoopCarriesDungeonLevelForward()
+        {
+            var engine = Engine();
+            var c = new CampaignState(
+                new MetaState(1, HeroStats.Empty, InnState.Empty, 10, 4),
+                engine.CreateInitialCampaign().Run);
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(4, looped.Meta.DungeonLevel);
+            Assert.AreEqual(2, looped.Meta.LoopCount);
+        }
     }
 }
