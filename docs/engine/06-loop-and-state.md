@@ -40,6 +40,30 @@
 > 상세: [07 디펜스 전투](07-defense-combat.md) §7.
 > 스펙: `docs/superpowers/plans/2026-07-08-vn-engine-07d-inn-income.md`.
 
+> **착수 상태(2026-07-09, 07-C)**: §1.2 메타 상태 표의 `DungeonLevel` 행이 이제 실제로 채워짐 — `MetaState`가
+> 5-arg 생성자(`loopCount, heroes, inn, karmaBank, dungeonLevel`)를 얻었고(1~4-arg 생성자는 하위호환 유지,
+> `dungeonLevel` 미지정 시 기본값 1 — 0이면 `DungeonLevelRule.LevelUpCost`가 예외를 던지므로 안전한 최소값으로
+> 폴백), `LoopEngine.StartNewLoop`가 이를 `Inn`/`Heroes`와 동일하게 **회차 넘어 그대로 이관**한다(§1.2 "메타 =
+> 회차를 넘어 유지" 원칙 그대로). 여기에 더해 `KarmaBank`(인과율 저금 잔액)도 같은 5-arg 생성자로 신설됨 — 06
+> §1.2 표엔 아직 명시적 행이 없으나(추가 대상), 07 §14/§15.3 "인과율 저금(bank) 잔액 → 메타" 상태귀속 규칙이
+> 여기 해당하고 `StartNewLoop`가 동일하게 캐리포워드한다. §1.1 런 상태 표에는 `PullsThisLoop`(가챠 뽑기 횟수
+> 카운터, 07 §6.3)가 추가됨 — `RunState`가 4번째 생성자 인자로 받으며(3-arg 이하는 하위호환, 기본값 0),
+> `StartNewLoop`가 새 `RunState`를 만들 때 이 값을 넘기지 않으므로 **회차마다 자동 0 리셋**(왕복 테스트로
+> 5→0 검증됨) — "메타에 두면 가챠가 막힌다"는 07 §6.3 경고가 타입 배치로 강제됨. §1.1 표의 `Captives` 행도
+> **세이브 직렬화**까지 완결됨 — `CampaignSaveData.captives`(`CaptiveEntry[]`) 추가로 07-B가 남긴 "세이브 미포함"
+> 갭이 닫힘(additive, `CampaignSaveVersion` 불변 — 구세이브는 빈 목록으로 역직렬화). 구세이브 호환: `karmaBank`는
+> 필드 부재 시 JsonUtility 기본값 0, `dungeonLevel`은 0/음수를 1로 보정(`DungeonLevelRule`의 하한과 정합).
+> `LoopEngine.CreateInitialCampaign`이 이제 `HeroStats.FromDefs(StatCatalog.Default())`로 **8스탯 라이브 시딩**을
+> 수행함(기존엔 캠페인 시작 시 스탯이 비어있는 `HeroStats.Empty`였음 — 07 §12의 07-A1 "미구현: 초기 라이브
+> 시딩" 항목이 여기서 닫힘). `HeroStats.FromDefs`는 `StatDef.Id.Value`가 null/empty면 즉시
+> `VnRuntimeException`을 던져 깨진 스탯 데이터가 조용히 통과하지 못하게 막는다. §5 "VN 접합"의 메타→VN 투영
+> 함수군에 `MetaProjection.ProjectKarmaBank`(인과율 잔고)와 `MetaProjection.ProjectResources`(런 자원 임의
+> id→변수명 매핑)가 신설됨 — **단, 이번 슬라이스는 이 두 투영 함수를 실제로 매 턴 호출하는 배선은 하지
+> 않는다**(06의 기존 정책 그대로: 투영은 순수 함수로만 준비하고, 언제 호출할지는 VN-서사 슬라이스가 결정 —
+> §5 "서사 → 커널 호출"과 대칭적인 미배선).
+> 상세: [07 디펜스 전투](07-defense-combat.md) §5·§6·§7·§9.
+> 스펙: `docs/superpowers/plans/2026-07-09-vn-engine-07c-economy-wiring.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---
