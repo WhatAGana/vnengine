@@ -231,6 +231,79 @@ namespace VNEngine.Tests
         }
 
         [Test]
+        public void ResolveWave_InnIncomeAddsGoldAndKarma()
+        {
+            // 여관(Decor=5,Staff=3,MenuLevel=2)이 전투와 별개로 매 웨이브 수급을 더한다. 순수 규칙과 동일 계산으로 기대값 산출.
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 2);
+            var hero = Stats((StatIds.STR, 1000), (StatIds.DEX, 100));
+            var inn = new InnState(staff: 3, decor: 5, menuLevel: 2);
+            var campaign = new CampaignState(
+                new MetaState(1, HeroStats.Empty, inn, karmaBank: 0),
+                new RunState(1, new Dictionary<string, int> { { "gold", 0 } }));
+            var expectedIncome = InnIncomeRule.Compute(inn);
+
+            var outcome = CampaignWaveRule.ResolveWave(
+                campaign, ValidHeroOnlyPlan(), wave, ThreeEmptyRooms(), MonsterCat(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
+                CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(11));
+
+            Assert.AreEqual(expectedIncome.Gold, outcome.InnGoldGained);
+            Assert.AreEqual(expectedIncome.Karma, outcome.InnKarmaGained);
+            Assert.AreEqual(outcome.GoldGained + expectedIncome.Gold, outcome.Campaign.Run.Resources["gold"]);
+            Assert.AreEqual(outcome.CaptureKarmaGained + expectedIncome.Karma, outcome.Campaign.Meta.KarmaBank);
+            Assert.AreEqual(4, outcome.Campaign.Meta.Inn.Decor, "DecorDecayPerTick=1 만큼 감쇠");
+        }
+
+        [Test]
+        public void ResolveWave_InnGateBeforeDecay_DecorOne_StillEarnsThenDecaysToZero()
+        {
+            // Decor=1: 게이트가 감쇠 전 Decor로 판정되어야 수입이 발생한다(감쇠를 먼저 하면 Decor=0이 되어 수입 0으로 잘못됨).
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 1);
+            var hero = Stats((StatIds.STR, 1000), (StatIds.DEX, 100));
+            var inn = new InnState(staff: 3, decor: 1, menuLevel: 2);
+            var campaign = new CampaignState(
+                new MetaState(1, HeroStats.Empty, inn, karmaBank: 0),
+                new RunState(1, new Dictionary<string, int> { { "gold", 0 } }));
+            var expectedIncome = InnIncomeRule.Compute(inn);
+
+            var outcome = CampaignWaveRule.ResolveWave(
+                campaign, ValidHeroOnlyPlan(), wave, ThreeEmptyRooms(), MonsterCat(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
+                CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(12));
+
+            Assert.Greater(expectedIncome.Gold, 0, "테스트 전제: Decor=1에서 Compute는 수입을 낸다");
+            Assert.AreEqual(expectedIncome.Gold, outcome.InnGoldGained);
+            Assert.AreEqual(expectedIncome.Karma, outcome.InnKarmaGained);
+            Assert.AreEqual(0, outcome.Campaign.Meta.Inn.Decor);
+        }
+
+        [Test]
+        public void ResolveWave_InnDecorZero_NoInnIncome()
+        {
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 1);
+            var hero = Stats((StatIds.STR, 1000), (StatIds.DEX, 100));
+            var inn = new InnState(staff: 3, decor: 0, menuLevel: 2);
+            var campaign = new CampaignState(
+                new MetaState(1, HeroStats.Empty, inn, karmaBank: 0),
+                new RunState(1, new Dictionary<string, int> { { "gold", 0 } }));
+
+            var outcome = CampaignWaveRule.ResolveWave(
+                campaign, ValidHeroOnlyPlan(), wave, ThreeEmptyRooms(), MonsterCat(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
+                CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(13));
+
+            Assert.AreEqual(0, outcome.InnGoldGained);
+            Assert.AreEqual(0, outcome.InnKarmaGained);
+            Assert.AreEqual(0, outcome.Campaign.Meta.Inn.Decor);
+        }
+
+        [Test]
         public void ResolveWave_NullArgumentsThrow()
         {
             var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);

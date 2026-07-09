@@ -10,13 +10,17 @@ namespace VNEngine
         public CombatResult Combat { get; }
         public int GoldGained { get; }
         public int CaptureKarmaGained { get; }
+        public int InnGoldGained { get; }
+        public int InnKarmaGained { get; }
 
-        public WaveOutcome(CampaignState campaign, CombatResult combat, int goldGained, int captureKarmaGained)
+        public WaveOutcome(CampaignState campaign, CombatResult combat, int goldGained, int captureKarmaGained, int innGoldGained, int innKarmaGained)
         {
             Campaign = campaign ?? throw new ArgumentNullException(nameof(campaign));
             Combat = combat ?? throw new ArgumentNullException(nameof(combat));
             GoldGained = goldGained;
             CaptureKarmaGained = captureKarmaGained;
+            InnGoldGained = innGoldGained;
+            InnKarmaGained = innKarmaGained;
         }
     }
 
@@ -74,19 +78,24 @@ namespace VNEngine
                 + combat.Captured.Count * LootRule.LootGold(threatBase, true);
             var captureKarma = combat.Captured.Count * LootRule.CaptureKarma(threatBase);
 
-            // (5) 포로 누적 + 골드 자원 반영. Day/PullsThisLoop는 Accumulate가 보존한다(CaptiveLedgerTests.
-            // AccumulatePreservesPullsThisLoop / CampaignWaveRuleTests.ResolveWave_PreservesPullsThisLoop로 회귀 방지).
+            // (5) 여관 수급 — 게이트(Decor<=0 -> Zero)는 반드시 감쇠 전(pre-decay) Decor로 판정한다(07-D 규칙 유지,
+            // 순서 위반 시 Decor=1에서도 수입이 0이 되어버리는 회귀가 발생한다: ResolveWave_InnGateBeforeDecay_DecorOne로 방지).
+            var income = InnIncomeRule.Compute(campaign.Meta.Inn);
+            var decayedInn = InnUpkeepRule.Decay(campaign.Meta.Inn);
+
+            // (6) 포로 누적 + 골드 자원 반영(약탈골드 + 여관골드를 한 번에 얹는다). Day/PullsThisLoop는 Accumulate가
+            // 보존한다(CaptiveLedgerTests.AccumulatePreservesPullsThisLoop / ResolveWave_PreservesPullsThisLoop로 회귀 방지).
             var accumulatedRun = CaptiveLedger.Accumulate(campaign.Run, combat);
             var resources = new Dictionary<string, int>(accumulatedRun.Resources);
             resources.TryGetValue(goldResourceId, out var currentGold);
-            resources[goldResourceId] = currentGold + gold;
+            resources[goldResourceId] = currentGold + gold + income.Gold;
             var newRun = new RunState(accumulatedRun.Day, resources, accumulatedRun.Captives, accumulatedRun.PullsThisLoop);
 
-            // (6) KarmaBank 증가. LoopCount/Heroes/Inn 보존.
-            var newMeta = new MetaState(campaign.Meta.LoopCount, campaign.Meta.Heroes, campaign.Meta.Inn, campaign.Meta.KarmaBank + captureKarma);
+            // (7) KarmaBank 증가(포획인과율 + 여관인과율) + 여관 감쇠 반영. LoopCount/Heroes 보존.
+            var newMeta = new MetaState(campaign.Meta.LoopCount, campaign.Meta.Heroes, decayedInn, campaign.Meta.KarmaBank + captureKarma + income.Karma);
 
-            // (7) 결과.
-            return new WaveOutcome(new CampaignState(newMeta, newRun), combat, gold, captureKarma);
+            // (8) 결과.
+            return new WaveOutcome(new CampaignState(newMeta, newRun), combat, gold, captureKarma, income.Gold, income.Karma);
         }
     }
 }
