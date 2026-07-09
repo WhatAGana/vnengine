@@ -128,5 +128,55 @@ namespace VNEngine.Tests
             Assert.Throws<System.ArgumentNullException>(() => EconomySpend.LevelUpDungeon(null, "gold", 10));
             Assert.Throws<System.ArgumentNullException>(() => EconomySpend.LevelUpDungeon(campaign, null, 10));
         }
+
+        private static RunState RunWithMana(int mana, int pullsThisLoop = 0) =>
+            new RunState(1, new Dictionary<string, int> { { "mana", mana } }, new List<Captive>(), pullsThisLoop);
+
+        [Test]
+        public void GachaPull_EnoughMana_DeductsAndIncrementsCounter()
+        {
+            var run = RunWithMana(mana: 10, pullsThisLoop: 0);
+
+            var result = EconomySpend.GachaPull(run, "mana");
+
+            Assert.IsTrue(result.Pulled);
+            Assert.AreEqual(2, result.Cost);
+            Assert.AreEqual(8, result.Run.Resources["mana"]);
+            Assert.AreEqual(1, result.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void GachaPull_CostRisesWithPulls()
+        {
+            var run = RunWithMana(mana: 10, pullsThisLoop: 3);
+
+            var result = EconomySpend.GachaPull(run, "mana");
+
+            Assert.AreEqual(3, result.Cost);
+            Assert.IsTrue(result.Pulled);
+            Assert.AreEqual(7, result.Run.Resources["mana"]);
+            Assert.AreEqual(4, result.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void GachaPull_InsufficientMana_NoOp()
+        {
+            var run = RunWithMana(mana: 1, pullsThisLoop: 0);
+
+            var result = EconomySpend.GachaPull(run, "mana");
+
+            Assert.IsFalse(result.Pulled);
+            Assert.AreEqual(2, result.Cost);
+            Assert.AreEqual(1, result.Run.Resources["mana"]);
+            Assert.AreEqual(0, result.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void GachaPull_NullArgsThrow()
+        {
+            var run = RunWithMana(10);
+            Assert.Throws<System.ArgumentNullException>(() => EconomySpend.GachaPull(null, "mana"));
+            Assert.Throws<System.ArgumentNullException>(() => EconomySpend.GachaPull(run, null));
+        }
     }
 }

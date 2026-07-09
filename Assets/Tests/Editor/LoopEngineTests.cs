@@ -142,5 +142,19 @@ namespace VNEngine.Tests
             Assert.AreEqual(4, looped.Meta.DungeonLevel);
             Assert.AreEqual(2, looped.Meta.LoopCount);
         }
+
+        [Test]
+        public void StartNewLoop_ResetsGachaPullCounter()
+        {
+            var engine = Engine();
+            var c = engine.CreateInitialCampaign();
+            var run = new RunState(c.Run.Day, c.Run.Resources, c.Run.Captives, pullsThisLoop: 5);
+            c = new CampaignState(c.Meta, run);
+            Assert.AreEqual(5, c.Run.PullsThisLoop); // 사전 조건
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(0, looped.Run.PullsThisLoop); // 가챠 카운터는 Run 소속 → 회차 리셋
+        }
     }
 }
