@@ -67,5 +67,68 @@ namespace VNEngine.Tests
             var state = new GameState(new SeededRandom(1));
             Assert.Throws<System.ArgumentException>(() => MetaProjection.ProjectHeroTotal(HeroStats.Empty, state, ""));
         }
+
+        [Test]
+        public void ProjectKarmaBank_WritesValue()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var meta = new MetaState(1, HeroStats.Empty, InnState.Empty, 17);
+            MetaProjection.ProjectKarmaBank(meta, state, "인과율");
+            Assert.AreEqual(VnValue.Int(17), state.Get("인과율"));
+        }
+
+        [Test]
+        public void ProjectKarmaBank_RejectsEmptyVariableName()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var meta = new MetaState(1, HeroStats.Empty, InnState.Empty, 17);
+            Assert.Throws<System.ArgumentException>(() => MetaProjection.ProjectKarmaBank(meta, state, ""));
+        }
+
+        [Test]
+        public void ProjectKarmaBank_NullArgsThrow()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var meta = new MetaState(1);
+            Assert.Throws<System.ArgumentNullException>(() => MetaProjection.ProjectKarmaBank(null, state, "인과율"));
+            Assert.Throws<System.ArgumentNullException>(() => MetaProjection.ProjectKarmaBank(meta, null, "인과율"));
+        }
+
+        [Test]
+        public void ProjectResources_WritesEach_AbsentIsZero()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var resources = new System.Collections.Generic.Dictionary<string, int> { { "gold", 50 } };
+            var run = new RunState(1, resources);
+            var map = new System.Collections.Generic.Dictionary<string, string>
+            {
+                { "gold", "varGold" },
+                { "manaStone", "varMana" },
+            };
+            MetaProjection.ProjectResources(run, state, map);
+            Assert.AreEqual(VnValue.Int(50), state.Get("varGold"));
+            Assert.AreEqual(VnValue.Int(0), state.Get("varMana"));
+        }
+
+        [Test]
+        public void ProjectResources_NullArgsThrow()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var run = new RunState(1, new System.Collections.Generic.Dictionary<string, int>());
+            var map = new System.Collections.Generic.Dictionary<string, string>();
+            Assert.Throws<System.ArgumentNullException>(() => MetaProjection.ProjectResources(null, state, map));
+            Assert.Throws<System.ArgumentNullException>(() => MetaProjection.ProjectResources(run, null, map));
+            Assert.Throws<System.ArgumentNullException>(() => MetaProjection.ProjectResources(run, state, null));
+        }
+
+        [Test]
+        public void ProjectResources_RejectsEmptyVariableName()
+        {
+            var state = new GameState(new SeededRandom(1));
+            var resources = new System.Collections.Generic.Dictionary<string, int> { { "gold", 50 } };
+            var run = new RunState(1, resources);
+            var map = new System.Collections.Generic.Dictionary<string, string> { { "gold", "" } };
+            Assert.Throws<System.ArgumentException>(() => MetaProjection.ProjectResources(run, state, map));
+        }
     }
 }

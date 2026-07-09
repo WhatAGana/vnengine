@@ -107,5 +107,129 @@ namespace VNEngine.Tests
             var restored = CampaignSave.Restore(CampaignSave.Capture(Sample())); // Sample()=스탯 없음
             Assert.AreEqual(0, restored.Meta.Heroes.Values.Count);
         }
+
+        private static CampaignState SampleWithKarmaAndPulls()
+        {
+            return new CampaignState(
+                new MetaState(3, HeroStats.Empty, InnState.Empty, 25),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }, System.Array.Empty<Captive>(), 9));
+        }
+
+        [Test]
+        public void KarmaBankAndPullsThisLoopRoundTripThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithKarmaAndPulls()));
+            Assert.AreEqual(25, restored.Meta.KarmaBank);
+            Assert.AreEqual(9, restored.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void KarmaBankAndPullsThisLoopRoundTripThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithKarmaAndPulls());
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(25, restored.Meta.KarmaBank);
+            Assert.AreEqual(9, restored.Run.PullsThisLoop);
+        }
+
+        [Test]
+        public void OldSaveMissingKarmaAndPullsFieldsRestoresToZeroWithoutException()
+        {
+            // 구세이브 시뮬레이션: karmaBank/pullsThisLoop 필드가 없던 시절의 JSON(누락 → 기본값 0).
+            var data = CampaignSave.Capture(Sample());
+            data.karmaBank = 0;
+            data.pullsThisLoop = 0;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(0, restored.Meta.KarmaBank);
+            Assert.AreEqual(0, restored.Run.PullsThisLoop);
+        }
+
+        private static CampaignState SampleWithCaptives()
+        {
+            var captives = new List<Captive>
+            {
+                new Captive(new UnitClassId("Succubus"), isNamed: true, ResetPolicy.PersistAcrossLoops),
+                new Captive(new UnitClassId("Imp"), isNamed: false, ResetPolicy.Unspecified),
+            };
+            return new CampaignState(
+                new MetaState(3),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }, captives));
+        }
+
+        [Test]
+        public void CaptivesRoundTripThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithCaptives()));
+            Assert.AreEqual(2, restored.Run.Captives.Count);
+            Assert.AreEqual(new UnitClassId("Succubus"), restored.Run.Captives[0].ClassId);
+            Assert.IsTrue(restored.Run.Captives[0].IsNamed);
+            Assert.AreEqual(ResetPolicy.PersistAcrossLoops, restored.Run.Captives[0].ResetPolicy);
+            Assert.AreEqual(new UnitClassId("Imp"), restored.Run.Captives[1].ClassId);
+            Assert.IsFalse(restored.Run.Captives[1].IsNamed);
+            Assert.AreEqual(ResetPolicy.Unspecified, restored.Run.Captives[1].ResetPolicy);
+        }
+
+        [Test]
+        public void CaptivesRoundTripThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithCaptives());
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(2, restored.Run.Captives.Count);
+            Assert.AreEqual(new UnitClassId("Succubus"), restored.Run.Captives[0].ClassId);
+            Assert.AreEqual(ResetPolicy.PersistAcrossLoops, restored.Run.Captives[0].ResetPolicy);
+        }
+
+        [Test]
+        public void OldSaveMissingCaptivesFieldRestoresToEmptyWithoutException()
+        {
+            // 구세이브 시뮬레이션: captives 필드가 없던 시절의 JSON(누락 리스트 → JsonUtility가 null로 역직렬화).
+            var data = CampaignSave.Capture(Sample());
+            data.captives = null;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(0, restored.Run.Captives.Count);
+        }
+
+        private static CampaignState SampleWithDungeonLevel(int dungeonLevel) =>
+            new CampaignState(
+                new MetaState(3, HeroStats.Empty, InnState.Empty, 0, dungeonLevel),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }));
+
+        [Test]
+        public void DungeonLevelRoundTripsThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithDungeonLevel(5)));
+            Assert.AreEqual(5, restored.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void DungeonLevelRoundTripsThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithDungeonLevel(5));
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(5, restored.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void OldSaveMissingDungeonLevelFieldRestoresToOneWithoutException()
+        {
+            // 구세이브 시뮬레이션: dungeonLevel 필드가 없던 시절의 JSON(누락 → JsonUtility 기본 int 0).
+            // DungeonLevelRule 은 dl<1 을 예외로 다루므로 0이 아니라 1로 복원돼야 한다.
+            var data = CampaignSave.Capture(Sample());
+            data.dungeonLevel = 0;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(1, restored.Meta.DungeonLevel);
+        }
     }
 }

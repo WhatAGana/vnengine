@@ -57,5 +57,19 @@ namespace VNEngine.Tests
             Assert.AreEqual(30, hs.Get(StatIds.MP));
             Assert.AreEqual(8, hs.Values.Count);
         }
+
+        [Test]
+        public void FromDefsRejectsNullStatId()
+        {
+            var defs = new List<StatDef> { new StatDef(new StatId(null), "무명", 5, 999) };
+            Assert.Throws<VnRuntimeException>(() => HeroStats.FromDefs(defs));
+        }
+
+        [Test]
+        public void FromDefsRejectsEmptyStatId()
+        {
+            var defs = new List<StatDef> { new StatDef(new StatId(""), "무명", 5, 999) };
+            Assert.Throws<VnRuntimeException>(() => HeroStats.FromDefs(defs));
+        }
     }
 }

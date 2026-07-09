@@ -94,5 +94,67 @@ namespace VNEngine.Tests
             var c = engine.CreateInitialCampaign();
             Assert.Throws<VnRuntimeException>(() => engine.ExecuteCommand(c, "nope"));
         }
+
+        [Test]
+        public void CreateInitialCampaign_SeedsEightHeroStats()
+        {
+            var c = Engine().CreateInitialCampaign();
+            var defs = StatCatalog.Default();
+            Assert.AreEqual(defs.Count, c.Meta.Heroes.Values.Count);
+            foreach (var d in defs)
+            {
+                Assert.IsTrue(c.Meta.Heroes.Has(d.Id), $"missing seeded stat: {d.Id}");
+                Assert.AreEqual(d.StartValue, c.Meta.Heroes.Get(d.Id));
+            }
+        }
+
+        [Test]
+        public void StartNewLoopCarriesKarmaBankForwardAndIncrementsLoopCount()
+        {
+            var engine = Engine();
+            var c = new CampaignState(
+                new MetaState(1, HeroStats.Empty, InnState.Empty, 10),
+                engine.CreateInitialCampaign().Run);
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(10, looped.Meta.KarmaBank);
+            Assert.AreEqual(2, looped.Meta.LoopCount);
+        }
+
+        [Test]
+        public void CreateInitialCampaign_DungeonLevelDefaultsToOne()
+        {
+            var c = Engine().CreateInitialCampaign();
+            Assert.AreEqual(1, c.Meta.DungeonLevel);
+        }
+
+        [Test]
+        public void StartNewLoopCarriesDungeonLevelForward()
+        {
+            var engine = Engine();
+            var c = new CampaignState(
+                new MetaState(1, HeroStats.Empty, InnState.Empty, 10, 4),
+                engine.CreateInitialCampaign().Run);
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(4, looped.Meta.DungeonLevel);
+            Assert.AreEqual(2, looped.Meta.LoopCount);
+        }
+
+        [Test]
+        public void StartNewLoop_ResetsGachaPullCounter()
+        {
+            var engine = Engine();
+            var c = engine.CreateInitialCampaign();
+            var run = new RunState(c.Run.Day, c.Run.Resources, c.Run.Captives, pullsThisLoop: 5);
+            c = new CampaignState(c.Meta, run);
+            Assert.AreEqual(5, c.Run.PullsThisLoop); // 사전 조건
+
+            var looped = engine.StartNewLoop(c);
+
+            Assert.AreEqual(0, looped.Run.PullsThisLoop); // 가챠 카운터는 Run 소속 → 회차 리셋
+        }
     }
 }

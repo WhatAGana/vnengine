@@ -113,5 +113,23 @@ namespace VNEngine.Tests
             var initial = engine.CreateInitialState();
             Assert.Throws<VnRuntimeException>(() => engine.ExecuteCommand(initial, "nope"));
         }
+
+        [Test]
+        public void ExecuteCommandPreservesPullsThisLoopAndCaptives()
+        {
+            var engine = Engine();
+            var captive = new Captive(new UnitClassId("Grunt"), false);
+            var initial = new RunState(
+                1,
+                new Dictionary<string, int> { { "money", 100 }, { "magic", 50 } },
+                new List<Captive> { captive },
+                5);
+
+            var next = engine.ExecuteCommand(initial, "raid");
+
+            Assert.AreEqual(5, next.PullsThisLoop, "PullsThisLoop must survive ExecuteCommand");
+            Assert.AreEqual(1, next.Captives.Count, "Captives must survive ExecuteCommand");
+            Assert.AreEqual(captive.ClassId, next.Captives[0].ClassId);
+        }
     }
 }

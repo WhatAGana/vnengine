@@ -17,7 +17,7 @@ namespace VNEngine
                 merged.Add(new Captive(c.ClassId, c.IsNamed, ResetPolicy.Unspecified));
             }
 
-            return new RunState(run.Day, run.Resources, merged);
+            return new RunState(run.Day, run.Resources, merged, run.PullsThisLoop);
         }
     }
 }

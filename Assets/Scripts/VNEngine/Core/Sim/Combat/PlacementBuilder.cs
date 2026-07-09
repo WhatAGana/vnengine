@@ -31,5 +31,14 @@ namespace VNEngine
             }
             return new RoomGraph(rebuilt, graph.Entry);
         }
+
+        // 검증 게이트를 강제하는 진입점 — 호출자가 미검증 플랜으로 그래프를 만들 수 없게 한다(07-B defer 해소).
+        public static RoomGraph ValidateAndApply(PlacementPlan plan, RoomGraph graph, IReadOnlyList<MonsterDef> catalog)
+        {
+            var result = PlacementValidator.Validate(plan, graph, catalog);
+            if (!result.IsValid)
+                throw new VnRuntimeException($"Invalid placement: {result.Error}");
+            return Apply(plan, graph, catalog);
+        }
     }
 }

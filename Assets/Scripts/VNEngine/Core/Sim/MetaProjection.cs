@@ -43,5 +43,32 @@ namespace VNEngine
             foreach (var kv in heroes.Values) sum += kv.Value;
             state.Set(totalVar, VnValue.Int(sum));
         }
+
+        // 인과율 잔고를 주입된 변수명으로 읽기전용 투영.
+        public static void ProjectKarmaBank(MetaState meta, GameState state, string karmaVar)
+        {
+            if (meta == null) throw new System.ArgumentNullException(nameof(meta));
+            if (state == null) throw new System.ArgumentNullException(nameof(state));
+            if (string.IsNullOrEmpty(karmaVar))
+                throw new System.ArgumentException("karmaVar required", nameof(karmaVar));
+
+            state.Set(karmaVar, VnValue.Int(meta.KarmaBank));
+        }
+
+        // 런 자원(자원id → 변수명)을 주입된 변수명으로 읽기전용 투영. 없는 자원은 0.
+        public static void ProjectResources(RunState run, GameState state, IReadOnlyDictionary<string, string> resourceVars)
+        {
+            if (run == null) throw new System.ArgumentNullException(nameof(run));
+            if (state == null) throw new System.ArgumentNullException(nameof(state));
+            if (resourceVars == null) throw new System.ArgumentNullException(nameof(resourceVars));
+
+            foreach (var kv in resourceVars)
+            {
+                if (string.IsNullOrEmpty(kv.Value))
+                    throw new System.ArgumentException("resource variable name required", nameof(resourceVars));
+                int val = run.Resources.TryGetValue(kv.Key, out var v) ? v : 0;
+                state.Set(kv.Value, VnValue.Int(val));
+            }
+        }
     }
 }
