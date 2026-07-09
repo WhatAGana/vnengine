@@ -147,5 +147,54 @@ namespace VNEngine.Tests
             Assert.AreEqual(0, restored.Meta.KarmaBank);
             Assert.AreEqual(0, restored.Run.PullsThisLoop);
         }
+
+        private static CampaignState SampleWithCaptives()
+        {
+            var captives = new List<Captive>
+            {
+                new Captive(new UnitClassId("Succubus"), isNamed: true, ResetPolicy.PersistAcrossLoops),
+                new Captive(new UnitClassId("Imp"), isNamed: false, ResetPolicy.Unspecified),
+            };
+            return new CampaignState(
+                new MetaState(3),
+                new RunState(5, new Dictionary<string, int> { { "money", 150 } }, captives));
+        }
+
+        [Test]
+        public void CaptivesRoundTripThroughCapture()
+        {
+            var restored = CampaignSave.Restore(CampaignSave.Capture(SampleWithCaptives()));
+            Assert.AreEqual(2, restored.Run.Captives.Count);
+            Assert.AreEqual(new UnitClassId("Succubus"), restored.Run.Captives[0].ClassId);
+            Assert.IsTrue(restored.Run.Captives[0].IsNamed);
+            Assert.AreEqual(ResetPolicy.PersistAcrossLoops, restored.Run.Captives[0].ResetPolicy);
+            Assert.AreEqual(new UnitClassId("Imp"), restored.Run.Captives[1].ClassId);
+            Assert.IsFalse(restored.Run.Captives[1].IsNamed);
+            Assert.AreEqual(ResetPolicy.Unspecified, restored.Run.Captives[1].ResetPolicy);
+        }
+
+        [Test]
+        public void CaptivesRoundTripThroughJsonUtility()
+        {
+            var data = CampaignSave.Capture(SampleWithCaptives());
+            string json = JsonUtility.ToJson(data);
+            var back = JsonUtility.FromJson<CampaignSaveData>(json);
+            var restored = CampaignSave.Restore(back);
+            Assert.AreEqual(2, restored.Run.Captives.Count);
+            Assert.AreEqual(new UnitClassId("Succubus"), restored.Run.Captives[0].ClassId);
+            Assert.AreEqual(ResetPolicy.PersistAcrossLoops, restored.Run.Captives[0].ResetPolicy);
+        }
+
+        [Test]
+        public void OldSaveMissingCaptivesFieldRestoresToEmptyWithoutException()
+        {
+            // 구세이브 시뮬레이션: captives 필드가 없던 시절의 JSON(누락 리스트 → JsonUtility가 null로 역직렬화).
+            var data = CampaignSave.Capture(Sample());
+            data.captives = null;
+
+            CampaignState restored = null;
+            Assert.DoesNotThrow(() => restored = CampaignSave.Restore(data));
+            Assert.AreEqual(0, restored.Run.Captives.Count);
+        }
     }
 }

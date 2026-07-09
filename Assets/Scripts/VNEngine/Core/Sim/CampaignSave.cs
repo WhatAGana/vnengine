@@ -23,6 +23,8 @@ namespace VNEngine
                 data.resources.Add(new ResEntry { id = kv.Key, value = kv.Value });
             foreach (var kv in c.Meta.Heroes.Values)
                 data.stats.Add(new StatEntry { id = kv.Key.Value, value = kv.Value });
+            foreach (var captive in c.Run.Captives)
+                data.captives.Add(new CaptiveEntry { classId = captive.ClassId.Value, isNamed = captive.IsNamed, resetPolicy = (int)captive.ResetPolicy });
             return data;
         }
 
@@ -44,10 +46,15 @@ namespace VNEngine
             var heroes = new HeroStats(statDict);
             var inn = new InnState(data.innStaff, data.innDecor, data.innMenuLevel);
 
+            var captives = new List<Captive>(data.captives != null ? data.captives.Count : 0);
+            if (data.captives != null)
+                foreach (var e in data.captives)
+                    captives.Add(new Captive(new UnitClassId(e.classId), e.isNamed, (ResetPolicy)e.resetPolicy));
+
             // RunState/HeroStats/InnState 생성자가 각각 방어적 복사 → 세이브데이터와 참조 분리.
             return new CampaignState(
                 new MetaState(data.loopCount, heroes, inn, data.karmaBank),
-                new RunState(data.day, res, System.Array.Empty<Captive>(), data.pullsThisLoop));
+                new RunState(data.day, res, captives, data.pullsThisLoop));
         }
     }
 }
