@@ -12,7 +12,7 @@ namespace VNEngine.Unity
     //   되었으므로, "웨이브 실행" 버튼이 실제 CampaignWaveRule.ResolveWave 를 호출한다. 결과(처치·포획·약탈골드·
     //   포획인과율·여관수급)가 실제 자원/메타에 반영되는 걸 화면으로 확인한다.
     //
-    // 웨이브 시나리오는 코드에 박은 고정 픽스처(제국병 처치 + 광신도 포획, HighDemon 함정방)지만,
+    // 웨이브 시나리오는 코드에 박은 고정 픽스처(제국병 처치 + 광신도 포획, Succubus(포획) 함정방)지만,
     // 그 결과 수치(골드/인과율/포로)는 전부 Core 순수함수가 계산한 실값이다 — 가짜 숫자 없음.
     public sealed class SimController : MonoBehaviour
     {
@@ -141,7 +141,7 @@ namespace VNEngine.Unity
 
             _dayGraph = RoomGraph.Linear(new List<RoomNode>
             {
-                new RoomNode(new List<Attacker>(), hasTrap: true),  // r0 함정방 + HighDemon 배치
+                new RoomNode(new List<Attacker>(), hasTrap: true),  // r0 함정방 + Succubus(포획) 배치
                 new RoomNode(new List<Attacker>(), hasTrap: false), // r1
                 new RoomNode(new List<Attacker>(), hasTrap: false), // r2 코어앞1칸(주인공)
             });
@@ -150,13 +150,13 @@ namespace VNEngine.Unity
             {
                 Monsters = new List<MonsterPlacement>
                 {
-                    new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.HighDemon },
+                    new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.Succubus },
                 },
                 HasHero = true,
                 HeroRoom = new RoomId("r2"),
             };
 
-            _dayThreatWeights = new ThreatWeights(wHero: 0, wLoop: 0, wPlaced: 0, wDungeon: 0, baseOffset: 10);
+            _dayThreatWeights = new ThreatWeights(wHero: 0, wLoop: 0, wPlaced: 0, wDungeon: 0, baseOffset: 55);
 
             var waves = new List<WaveDef>();
             for (int i = 0; i < TimeQuery.Cycles; i++) waves.Add(_fixedWave); // 9회 반복(주석대로 검증용)
@@ -232,8 +232,9 @@ namespace VNEngine.Unity
             Refresh();
         }
 
-        // 고정 검증 시나리오: 제국병 3(포획불가→처치) + 광신도 2(포획가능→포획), HighDemon 함정방(r0)에서 전원 즉사/포획.
-        // 주인공은 r2(코어앞1칸)에 배치(placement 게이트 통과 조건). threatBase=10 고정.
+        // 고정 검증 시나리오: 제국병 3(포획불가→처치) + 광신도 2(포획가능→포획), Succubus(포획) 함정방(r0)에서
+        // 함정 데미지(15)를 버텨낸 후 Succubus에게 격퇴되어 처치/포획.
+        // 주인공은 r2(코어앞1칸)에 배치(placement 게이트 통과 조건). threatBase=55 고정.
         // 픽스처는 BuildDayFixtures()에서 만든 필드를 재사용(_dayCtx와 동일한 시나리오).
         private WaveOutcome RunDebugWave()
         {
