@@ -22,6 +22,15 @@ namespace VNEngine.Tests
         private static PlacementPlan Plan(params MonsterPlacement[] ms)
             => new PlacementPlan { Monsters = new List<MonsterPlacement>(ms), HasHero = false };
 
+        // r0=함정방, r1·r2=일반방. (포획몹은 r0에만, 일반몹은 r1/r2에만 배치 가능.)
+        private static RoomGraph TrapAtR0()
+            => RoomGraph.Linear(new List<RoomNode>
+            {
+                new RoomNode(new List<Attacker>(), hasTrap: true),
+                new RoomNode(new List<Attacker>(), hasTrap: false),
+                new RoomNode(new List<Attacker>(), hasTrap: false),
+            });
+
         [Test]
         public void BudgetIsRoomCountTimesThree()
         {
@@ -44,8 +53,9 @@ namespace VNEngine.Tests
         [Test]
         public void CostSumWithinBudgetIsValid()
         {
-            // 서큐(3)+데스나이트(4)+오크(2)=9 == 예산9.
-            var plan = Plan(Place("r0", MonsterIds.Succubus), Place("r1", MonsterIds.DeathKnight), Place("r2", MonsterIds.Orc));
+            // 하이오크(3, 비포획)+데스나이트(4)+오크(2)=9 == 예산9.
+            // (ThreeRooms()는 전부 일반방이라 포획몹인 서큐버스는 배치 불가 — 새 함정방 규칙. cost3 비포획몹으로 대체.)
+            var plan = Plan(Place("r0", MonsterIds.HighOrc), Place("r1", MonsterIds.DeathKnight), Place("r2", MonsterIds.Orc));
             var r = PlacementValidator.Validate(plan, ThreeRooms(), Cat());
             Assert.IsTrue(r.IsValid);
             Assert.AreEqual(9, r.TotalCost);
@@ -117,10 +127,47 @@ namespace VNEngine.Tests
         [Test]
         public void ValidateAndApply_ValidPlan_ReturnsGraphWithDefenders()
         {
-            var plan = Plan(Place("r0", MonsterIds.Imp), Place("r2", MonsterIds.Succubus));
-            var built = PlacementBuilder.ValidateAndApply(plan, ThreeRooms(), Cat());
-            Assert.AreEqual(1, built.Path[0].Defenders.Count);
-            Assert.AreEqual(1, built.Path[2].Defenders.Count);
+            // 임프(일반)→일반방 r1, 서큐버스(포획)→함정방 r0.
+            var plan = Plan(Place("r1", MonsterIds.Imp), Place("r0", MonsterIds.Succubus));
+            var built = PlacementBuilder.ValidateAndApply(plan, TrapAtR0(), Cat());
+            Assert.AreEqual(1, built.Path[0].Defenders.Count, "r0(함정방)에 서큐버스");
+            Assert.AreEqual(1, built.Path[1].Defenders.Count, "r1(일반방)에 임프");
+            Assert.IsTrue(built.Path[0].Defenders[0].IsCapturingMonster);
+        }
+
+        [Test]
+        public void NonCapturingMonsterInTrapRoomIsRejected()
+        {
+            // 오크(비포획, cost2)를 함정방 r0에 → 거부.
+            var plan = Plan(Place("r0", MonsterIds.Orc));
+            Assert.AreEqual(PlacementError.MonsterInTrapRoom,
+                PlacementValidator.Validate(plan, TrapAtR0(), Cat()).Error);
+        }
+
+        [Test]
+        public void CapturingMonsterInTrapRoomIsValid()
+        {
+            // 서큐버스(포획, cost3)를 함정방 r0에 → 허용.
+            var plan = Plan(Place("r0", MonsterIds.Succubus));
+            var r = PlacementValidator.Validate(plan, TrapAtR0(), Cat());
+            Assert.IsTrue(r.IsValid, "포획몹은 함정방에 배치 가능");
+        }
+
+        [Test]
+        public void CapturingMonsterInNormalRoomIsRejected()
+        {
+            // 서큐버스(포획)를 일반방 r1에 → 거부.
+            var plan = Plan(Place("r1", MonsterIds.Succubus));
+            Assert.AreEqual(PlacementError.CapturerInNormalRoom,
+                PlacementValidator.Validate(plan, TrapAtR0(), Cat()).Error);
+        }
+
+        [Test]
+        public void NonCapturingMonsterInNormalRoomIsValid()
+        {
+            // 오크(비포획)를 일반방 r1에 → 허용.
+            var plan = Plan(Place("r1", MonsterIds.Orc));
+            Assert.IsTrue(PlacementValidator.Validate(plan, TrapAtR0(), Cat()).IsValid);
         }
     }
 }

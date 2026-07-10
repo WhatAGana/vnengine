@@ -29,7 +29,7 @@ namespace VNEngine
                 var defs = perRoom.TryGetValue(room.Id, out var placed) ? placed : new List<Attacker>();
                 rebuilt.Add(new RoomNode(room.Id, defs, room.HasTrap, room.NextRooms));
             }
-            return new RoomGraph(rebuilt, graph.Entry);
+            return new RoomGraph(rebuilt, graph.Entry, graph.Trap);
         }
 
         // 검증 게이트를 강제하는 진입점 — 호출자가 미검증 플랜으로 그래프를 만들 수 없게 한다(07-B defer 해소).

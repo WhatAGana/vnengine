@@ -99,12 +99,13 @@ namespace VNEngine.Tests
             var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, count: 1);
-            // 압도적 화력의 방어몹(즉사 보장) + 함정방.
-            var trapRoom = new RoomNode(new List<Attacker> { new Attacker(UnitClassIds.Tank, hp: 999, atk: 100000, def: 10, canBeCaptured: false) }, hasTrap: true);
+            // 함정방 + 포획형 방어몹(즉사 화력). 함정 AND 포획몹 → 포획.
+            var succ = new Attacker(MonsterIds.Succubus, hp: 999, atk: 100000, def: 10, canBeCaptured: false, isCapturingMonster: true);
+            var trapRoom = new RoomNode(new List<Attacker> { succ }, hasTrap: true);
             var rooms = new List<RoomNode> { trapRoom };
-            var threatWeights = FixedThreat(10); // 침입자 hp/def <= 15 로 고정 -> 100000 데미지에 항상 즉사.
+            var threatWeights = FixedThreat(10);
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms, TrapConfig.None()), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
 
             Assert.AreEqual(1, result.Captured.Count);
             Assert.AreEqual(0, result.Killed.Count);
@@ -112,20 +113,21 @@ namespace VNEngine.Tests
         }
 
         [Test]
-        public void CapturingMonsterFinishCapturesEvenWithoutTrap()
+        public void CapturingMonsterWithoutTrapDoesNotCapture()
         {
             var capturable = ClassOf("Cap", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, 1);
-            // 함정 없음, 방어몹은 포획형(서큐버스류) + 즉사 화력.
+            // 함정 없음 + 포획형 방어몹. 새 규칙: 함정 AND 포획몹이어야 포획 → 함정 없으면 처치.
+            // (배치검증이라면 애초에 포획몹은 일반방에 못 두지만, 여기선 resolver 단독 거동을 직접 검증.)
             var succ = new Attacker(MonsterIds.Succubus, 999, 100000, 10, false, isCapturingMonster: true);
-            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: false) });
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: false) }, TrapConfig.None());
 
             var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
                 FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(5));
 
-            Assert.AreEqual(1, result.Captured.Count, "포획형 몹의 마지막 타격 → 함정 없이도 포획");
-            Assert.AreEqual(0, result.Killed.Count);
+            Assert.AreEqual(0, result.Captured.Count, "함정방이 아니면 포획몹도 포획 못 함");
+            Assert.AreEqual(1, result.Killed.Count);
         }
 
         [Test]
@@ -142,6 +144,57 @@ namespace VNEngine.Tests
 
             Assert.AreEqual(1, result.Killed.Count);
             Assert.AreEqual(0, result.Captured.Count);
+        }
+
+        [Test]
+        public void TrapDamageAloneKillsWeakIntruderWithoutCapture()
+        {
+            // 함정방(포획몹 없음, 방어몹 0) + 포획가능 침입자. 함정 데미지만으로 즉사 → 처치(포획 아님).
+            var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
+            var catalog = new List<UnitClassDef> { capturable };
+            var wave = OneWave(capturable.Id, count: 1);
+            // 가시함정 lvl1 = 15 데미지. threatBase=10 → hp≈5..15 → 함정에 즉사.
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker>(), hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(7));
+
+            Assert.AreEqual(1, result.Killed.Count, "함정 단독 처치 = 데미지만, 포획 없음(초회차 안전판)");
+            Assert.AreEqual(0, result.Captured.Count);
+            Assert.IsFalse(result.CoreHit);
+        }
+
+        [Test]
+        public void TrapDamageDoesNotKillStrongIntruderThenPassesThrough()
+        {
+            // 함정 15 < 침입자 hp(threatBase=50 → 45..55). 방어몹 없음 → 함정만으론 못 죽이고 무력한 주인공도 못 막음 → 코어 도달.
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 1);
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker>(), hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(50), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(8));
+
+            Assert.IsTrue(result.CoreHit, "함정 데미지가 hp보다 작으면 통과");
+            Assert.AreEqual(0, result.Killed.Count);
+        }
+
+        [Test]
+        public void StrongIntruderSurvivesTrapThenCapturedByCapturingMonster()
+        {
+            // 함정방 + 포획몹. 함정 15로는 못 죽는 강한 침입자(threatBase=50)를 포획몹이 격퇴 → 함정 AND 포획몹 → 포획.
+            var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
+            var catalog = new List<UnitClassDef> { capturable };
+            var wave = OneWave(capturable.Id, count: 1);
+            var succ = new Attacker(MonsterIds.Succubus, hp: 999, atk: 100000, def: 10, canBeCaptured: false, isCapturingMonster: true);
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(50), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(6));
+
+            Assert.AreEqual(1, result.Captured.Count);
+            Assert.AreEqual(0, result.Killed.Count);
         }
 
         // ---- 가중 전투력 경유(A1 권고): raw 스탯합이 아니라 HeroCombatProfile 파생치를 씀을 end-to-end 로 검증 ----

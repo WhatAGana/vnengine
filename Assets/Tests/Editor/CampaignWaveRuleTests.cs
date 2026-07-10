@@ -55,12 +55,12 @@ namespace VNEngine.Tests
                 new RoomNode(new List<Attacker>(), hasTrap: false),
             });
 
-        // 고위마족(atk130,cost5, 예산9 이내)을 r0에 배치 + 주인공을 r2(코어앞1칸)에 배치.
-        // threatBase=10 인 침입자(hp~5..15)는 atk130 방어몹에게 항상 1타 즉사 -> 함정방 -> 포획.
+        // 서큐버스(포획몹, atk60, cost3)를 함정방 r0에 + 주인공을 r2(코어앞1칸)에 배치.
+        // (포획몹은 함정방에만 배치 가능 — 새 배치규칙.) 함정방+포획몹 격퇴 → 포획.
         private static PlacementPlan HeroPlusTrapDefenderPlan()
             => new PlacementPlan
             {
-                Monsters = new List<MonsterPlacement> { new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.HighDemon } },
+                Monsters = new List<MonsterPlacement> { new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.Succubus } },
                 HasHero = true,
                 HeroRoom = new RoomId("r2"),
             };
@@ -95,11 +95,11 @@ namespace VNEngine.Tests
         [Test]
         public void ResolveWave_CapturesCreditHalfLootPlusKarma()
         {
-            // 고위마족 방어몹(atk130) + 함정방 -> 전원 포획(포획가능 침입자, threatBase=10 -> hp~5..15로 항상 즉사).
+            // 고위마족 방어몹(atk130) + 함정방 -> 전원 포획(포획가능 침입자, threatBase=50 -> hp~45..55, 함정15 생존 후 방어몹에 즉사).
             var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, count: 3);
-            var threatWeights = FixedThreat(10); // threatBase=10 고정 -> Isqrt(10)=3.
+            var threatWeights = FixedThreat(50);
             var campaign = Campaign();
 
             var outcome = CampaignWaveRule.ResolveWave(
@@ -109,8 +109,8 @@ namespace VNEngine.Tests
 
             Assert.AreEqual(3, outcome.Combat.Captured.Count);
             Assert.AreEqual(0, outcome.Combat.Killed.Count);
-            var expectedGold = 3 * LootRule.LootGold(10, true);
-            var expectedKarma = 3 * LootRule.CaptureKarma(10);
+            var expectedGold = 3 * LootRule.LootGold(50, true);
+            var expectedKarma = 3 * LootRule.CaptureKarma(50);
             Assert.AreEqual(expectedGold, outcome.GoldGained);
             Assert.AreEqual(expectedKarma, outcome.CaptureKarmaGained);
             Assert.AreEqual(expectedKarma, outcome.Campaign.Meta.KarmaBank - campaign.Meta.KarmaBank, "KarmaBank가 정확히 CaptureKarmaGained 만큼 증가");
@@ -126,7 +126,7 @@ namespace VNEngine.Tests
 
             var outcome = CampaignWaveRule.ResolveWave(
                 campaign, HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                Stats(), StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                Stats(), StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(3));
 
             Assert.AreEqual(outcome.Combat.Captured.Count, outcome.Campaign.Run.Captives.Count);
@@ -175,11 +175,11 @@ namespace VNEngine.Tests
 
             var a = CampaignWaveRule.ResolveWave(
                 Campaign(), HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                hero, StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(777));
             var b = CampaignWaveRule.ResolveWave(
                 Campaign(), HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                hero, StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(777));
 
             Assert.AreEqual(a.GoldGained, b.GoldGained);

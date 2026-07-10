@@ -63,5 +63,28 @@ namespace VNEngine.Tests
             Assert.Throws<System.ArgumentException>(
                 () => new RoomGraph(new List<RoomNode> { entry }, new RoomId("entry")));
         }
+
+        [Test]
+        public void LinearDefaultsToDefaultTrapConfig()
+        {
+            var g = RoomGraph.Linear(new System.Collections.Generic.List<RoomNode>
+            {
+                new RoomNode(new System.Collections.Generic.List<Attacker>(), hasTrap: true),
+            });
+            Assert.IsNotNull(g.Trap);
+            Assert.AreEqual(TrapConfig.Default().Damage, g.Trap.Damage);
+        }
+
+        [Test]
+        public void LinearCarriesExplicitTrapConfig()
+        {
+            var cfg = TrapConfig.None();
+            var g = RoomGraph.Linear(new System.Collections.Generic.List<RoomNode>
+            {
+                new RoomNode(new System.Collections.Generic.List<Attacker>(), hasTrap: true),
+            }, cfg);
+            Assert.AreSame(cfg, g.Trap);
+            Assert.AreEqual(0, g.Trap.Damage);
+        }
     }
 }

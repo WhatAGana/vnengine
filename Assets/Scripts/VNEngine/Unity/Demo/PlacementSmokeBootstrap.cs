@@ -66,7 +66,7 @@ namespace VNEngine.Unity
             // 3 empty placeable rooms via the real 07-B graph builder.
             var content = new List<RoomNode>();
             for (int i = 0; i < roomCount; i++)
-                content.Add(new RoomNode(System.Array.Empty<Attacker>(), hasTrap: i == 0)); // 방1 = 함정방 → 포획 트리거
+                content.Add(new RoomNode(System.Array.Empty<Attacker>(), hasTrap: i == 0)); // 방1 = 함정방 → 포획몹(서큐버스)만 배치 가능(그 외 배치 시 거부)
             _graph = RoomGraph.Linear(content);
             foreach (var r in _graph.Rooms) _roomIds.Add(r.Id);
 
@@ -273,7 +273,7 @@ namespace VNEngine.Unity
             waveBtn.GetComponent<Image>().color = new Color(0.55f, 0.18f, 0.18f, 0.98f);
             Stretch(waveBtn.transform, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(300f, 92f), new Vector2(-28f, -16f));
 
-            SetStatus("보유몹 선택 → 방 클릭 배치 → ⚔ 웨이브 실행");
+            SetStatus("보유몹 선택 → 방 클릭 배치 (방1=함정방, 포획몹(서큐버스)만 배치 가능) → ⚔ 웨이브 실행");
         }
 
         private void BuildRoomsArea(Transform canvas)
@@ -302,8 +302,11 @@ namespace VNEngine.Unity
                 vlg.childControlWidth = true; vlg.childControlHeight = true;
                 vlg.childForceExpandWidth = true; vlg.childForceExpandHeight = false;
 
-                var header = MakeButton(panel.transform, $"방{i + 1}   ＋배치", 0f, 56f, () => OnPlaceInRoom(roomId));
-                header.GetComponent<Image>().color = new Color(0.18f, 0.28f, 0.22f, 0.95f);
+                string roomLabel = i == 0 ? $"방{i + 1}(함정·포획몹만)   ＋배치" : $"방{i + 1}   ＋배치";
+                var header = MakeButton(panel.transform, roomLabel, 0f, 56f, () => OnPlaceInRoom(roomId));
+                header.GetComponent<Image>().color = i == 0
+                    ? new Color(0.32f, 0.20f, 0.18f, 0.95f)
+                    : new Color(0.18f, 0.28f, 0.22f, 0.95f);
 
                 var mobList = new GameObject("MobList", typeof(RectTransform));
                 mobList.transform.SetParent(panel.transform, false);
