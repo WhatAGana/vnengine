@@ -30,3 +30,8 @@
 # OS
 .DS_Store
 Thumbs.db
+
+# Dev/verification screenshots — kept locally, not tracked
+/[Aa]ssets/[Ss]creenshots/
+/[Aa]ssets/[Ss]creenshots/**
+/[Aa]ssets/[Ss]creenshots.meta
