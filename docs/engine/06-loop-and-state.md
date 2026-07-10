@@ -156,7 +156,7 @@ public sealed class CampaignState {
 > **현행 회귀(시간구조, 2026-07-09)**: `LoopEngine.StartNewLoop`가 실제 회귀 수행자 — `CampaignDayRule.AdvanceDay`는
 > `Day>90`이면 처리 없이 `AdvanceResult.RegressPending=true`만 반환하고, caller(Unity `SimController`)가 이 신호를
 > 보고 `LoopEngine.StartNewLoop`를 호출한다. 아래 `Regress(state, input)` 시그니처·계승/편지/진실플래그 내용 로직은
-> 여전히 미구현(§0 착수 상태 참고) — 현행은 "런 리셋+메타 유지"만 수행하는 얇은 버전.
+> 여전히 미구현(위 착수 상태 노트 참고) — 현행은 "런 리셋+메타 유지"만 수행하는 얇은 버전.
 
 ```csharp
 CampaignState Regress(CampaignState s, RegressionInput input)
