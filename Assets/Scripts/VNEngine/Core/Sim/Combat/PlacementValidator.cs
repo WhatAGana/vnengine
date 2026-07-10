@@ -16,19 +16,26 @@ namespace VNEngine
 
             var budget = graph.Rooms.Count * BudgetPerRoom;
 
-            var costById = new Dictionary<UnitClassId, int>(catalog.Count);
-            foreach (var m in catalog) costById[m.Id] = m.Cost;
-            var roomIds = new HashSet<RoomId>();
-            foreach (var r in graph.Rooms) roomIds.Add(r.Id);
+            var defById = new Dictionary<UnitClassId, MonsterDef>(catalog.Count);
+            foreach (var m in catalog) defById[m.Id] = m;
+            var roomById = new Dictionary<RoomId, RoomNode>();
+            foreach (var r in graph.Rooms) roomById[r.Id] = r;
 
             var total = 0;
             foreach (var p in plan.Monsters)
             {
-                if (!costById.TryGetValue(p.Monster, out var cost))
+                if (!defById.TryGetValue(p.Monster, out var def))
                     return new PlacementResult(false, budget, total, PlacementError.UnknownMonster);
-                if (!roomIds.Contains(p.Room))
+                if (!roomById.TryGetValue(p.Room, out var room))
                     return new PlacementResult(false, budget, total, PlacementError.InvalidRoom);
-                total += cost;
+
+                // 함정방=포획몹만, 일반방=일반몹만.
+                if (room.HasTrap && !def.IsCapturingMonster)
+                    return new PlacementResult(false, budget, total, PlacementError.MonsterInTrapRoom);
+                if (!room.HasTrap && def.IsCapturingMonster)
+                    return new PlacementResult(false, budget, total, PlacementError.CapturerInNormalRoom);
+
+                total += def.Cost;
             }
             if (total > budget)
                 return new PlacementResult(false, budget, total, PlacementError.OverBudget);

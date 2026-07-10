@@ -24,6 +24,8 @@ namespace VNEngine
         UnknownMonster,
         InvalidRoom,
         HeroRoomNotCoreFront,
+        MonsterInTrapRoom,      // 일반몹(비포획)을 함정방에 배치 시도
+        CapturerInNormalRoom,   // 포획몹을 일반방에 배치 시도
     }
 
     // 검증 결과(순수 데이터). UI 게이트용이라 예외가 아니라 Error 코드로 반환.

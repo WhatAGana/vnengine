@@ -55,12 +55,12 @@ namespace VNEngine.Tests
                 new RoomNode(new List<Attacker>(), hasTrap: false),
             });
 
-        // 고위마족(atk130,cost5, 예산9 이내)을 r0에 배치 + 주인공을 r2(코어앞1칸)에 배치.
-        // threatBase=10 인 침입자(hp~5..15)는 atk130 방어몹에게 항상 1타 즉사 -> 함정방 -> 포획.
+        // 서큐버스(포획몹, atk60, cost3)를 함정방 r0에 + 주인공을 r2(코어앞1칸)에 배치.
+        // (포획몹은 함정방에만 배치 가능 — 새 배치규칙.) 함정방+포획몹 격퇴 → 포획.
         private static PlacementPlan HeroPlusTrapDefenderPlan()
             => new PlacementPlan
             {
-                Monsters = new List<MonsterPlacement> { new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.HighDemon } },
+                Monsters = new List<MonsterPlacement> { new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.Succubus } },
                 HasHero = true,
                 HeroRoom = new RoomId("r2"),
             };
