@@ -51,6 +51,21 @@ namespace VNEngine.Unity
         private int _statUpgradeIndex;    // "스탯 강화"를 8스탯 순환하며 적용
         private string _lastAction = "(대기 중 — 버튼을 눌러보세요)";
 
+        // ---- Task5: 90일 진행(TimeController) 배선용 픽스처/상태 ----
+        // OnWave가 쓰던 것과 동일한 고정 검증 시나리오를 필드로 추출 — RunDebugWave와 _dayCtx가 같은 픽스처를 공유한다.
+        private List<UnitClassDef> _classCatalog;
+        private WaveDef _fixedWave;
+        private RoomGraph _dayGraph;
+        private PlacementPlan _dayPlan;
+        private ThreatWeights _dayThreatWeights;
+        private DayContext _dayCtx;
+        private IRandom _rng; // 대시보드 진행버튼(하루/다음웨이브/빠른재생) 전용 — OnWave의 _waveSeed와는 별개 계열
+
+        private bool _fastForward;
+        private float _ffAccum;
+        private const float FfInterval = 0.15f;
+        private TMP_Text _ffLabel;
+
         private void Start()
         {
             // 자원 정의: SO에서 읽되, 경제에 필요한 gold/manaStone 이 없으면 코드로 주입(씬 세팅 없이도 동작).
@@ -73,6 +88,7 @@ namespace VNEngine.Unity
 
             if (seedOnStart) SeedForDebug();
 
+            BuildDayFixtures();
             BuildButtons();
 
             if (saveButton != null)
@@ -108,6 +124,50 @@ namespace VNEngine.Unity
             _campaign = new CampaignState(meta, _campaign.Run);
         }
 
+        // Task5: OnWave(RunDebugWave)가 쓰던 것과 동일한 고정 검증 시나리오를 필드로 만들어
+        // "웨이브 실행" 버튼과 TimeController 진행버튼(하루/다음웨이브/빠른재생)이 같은 픽스처를 공유하게 한다.
+        // DayContext.Waves 는 주기(1~9차)당 1개씩 필요 — 이 고정 픽스처를 9회 반복해 채운다(검증용, 실전 다중 웨이브 설계는 이후 슬라이스).
+        private void BuildDayFixtures()
+        {
+            var soldier = new UnitClassDef(new UnitClassId("ImperialSoldier"), "제국병", 100, 100, 100, canBeCaptured: false);
+            var zealot = new UnitClassDef(new UnitClassId("Zealot"), "광신도", 100, 100, 100, canBeCaptured: true);
+            _classCatalog = new List<UnitClassDef> { soldier, zealot };
+
+            _fixedWave = new WaveDef(new List<WaveDef.Entry>
+            {
+                new WaveDef.Entry { ClassId = soldier.Id, Count = 3 },
+                new WaveDef.Entry { ClassId = zealot.Id, Count = 2 },
+            });
+
+            _dayGraph = RoomGraph.Linear(new List<RoomNode>
+            {
+                new RoomNode(new List<Attacker>(), hasTrap: true),  // r0 함정방 + HighDemon 배치
+                new RoomNode(new List<Attacker>(), hasTrap: false), // r1
+                new RoomNode(new List<Attacker>(), hasTrap: false), // r2 코어앞1칸(주인공)
+            });
+
+            _dayPlan = new PlacementPlan
+            {
+                Monsters = new List<MonsterPlacement>
+                {
+                    new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.HighDemon },
+                },
+                HasHero = true,
+                HeroRoom = new RoomId("r2"),
+            };
+
+            _dayThreatWeights = new ThreatWeights(wHero: 0, wLoop: 0, wPlaced: 0, wDungeon: 0, baseOffset: 10);
+
+            var waves = new List<WaveDef>();
+            for (int i = 0; i < TimeQuery.Cycles; i++) waves.Add(_fixedWave); // 9회 반복(주석대로 검증용)
+
+            _dayCtx = new DayContext(_dayPlan, waves, _dayGraph, MonsterCatalog.Default(), StatCombatWeights.Default(),
+                _dayThreatWeights, _classCatalog, new ClassMatchup(new List<ClassMatchup.Entry>()), CaptureRule.Default(),
+                goldResourceId);
+
+            _rng = new SeededRandom(9001);
+        }
+
         private void BuildButtons()
         {
             if (buttonPrefab == null || buttonContainer == null)
@@ -116,8 +176,11 @@ namespace VNEngine.Unity
                 return;
             }
 
-            SpawnButton("웨이브 실행", OnWave);
-            SpawnButton("다음 날", OnNextDay);
+            SpawnButton("웨이브 실행", OnWave);   // 애드혹 검증용(고정 시나리오 즉시 실행) — TimeController 진행과 별개로 유지
+            SpawnButton("하루", OnStepDay);
+            SpawnButton("다음 웨이브까지", OnSkipToNextWave);
+            var ffBtn = SpawnButton("빠른재생: 꺼짐", OnToggleFastForward);
+            _ffLabel = ffBtn != null ? ffBtn.GetComponentInChildren<TMP_Text>(true) : null;
             if (newLoopButton != null)
             {
                 newLoopButton.onClick.RemoveAllListeners();
@@ -139,7 +202,7 @@ namespace VNEngine.Unity
             }
         }
 
-        private void SpawnButton(string label, UnityEngine.Events.UnityAction onClick)
+        private Button SpawnButton(string label, UnityEngine.Events.UnityAction onClick)
         {
             Button btn = Instantiate(buttonPrefab, buttonContainer);
             btn.name = $"Btn_{label}";
@@ -147,6 +210,7 @@ namespace VNEngine.Unity
             if (tmp != null) tmp.text = label;
             btn.onClick.RemoveAllListeners();
             btn.onClick.AddListener(onClick);
+            return btn;
         }
 
         // ================= 버튼 핸들러 (전부 실제 Core 호출) =================
@@ -170,55 +234,74 @@ namespace VNEngine.Unity
 
         // 고정 검증 시나리오: 제국병 3(포획불가→처치) + 광신도 2(포획가능→포획), HighDemon 함정방(r0)에서 전원 즉사/포획.
         // 주인공은 r2(코어앞1칸)에 배치(placement 게이트 통과 조건). threatBase=10 고정.
+        // 픽스처는 BuildDayFixtures()에서 만든 필드를 재사용(_dayCtx와 동일한 시나리오).
         private WaveOutcome RunDebugWave()
         {
-            var soldier = new UnitClassDef(new UnitClassId("ImperialSoldier"), "제국병", 100, 100, 100, canBeCaptured: false);
-            var zealot = new UnitClassDef(new UnitClassId("Zealot"), "광신도", 100, 100, 100, canBeCaptured: true);
-            var catalog = new List<UnitClassDef> { soldier, zealot };
-
-            var wave = new WaveDef(new List<WaveDef.Entry>
-            {
-                new WaveDef.Entry { ClassId = soldier.Id, Count = 3 },
-                new WaveDef.Entry { ClassId = zealot.Id, Count = 2 },
-            });
-
-            var graph = RoomGraph.Linear(new List<RoomNode>
-            {
-                new RoomNode(new List<Attacker>(), hasTrap: true),  // r0 함정방 + HighDemon 배치
-                new RoomNode(new List<Attacker>(), hasTrap: false), // r1
-                new RoomNode(new List<Attacker>(), hasTrap: false), // r2 코어앞1칸(주인공)
-            });
-
-            var plan = new PlacementPlan
-            {
-                Monsters = new List<MonsterPlacement>
-                {
-                    new MonsterPlacement { Room = new RoomId("r0"), Monster = MonsterIds.HighDemon },
-                },
-                HasHero = true,
-                HeroRoom = new RoomId("r2"),
-            };
-
-            var threatWeights = new ThreatWeights(wHero: 0, wLoop: 0, wPlaced: 0, wDungeon: 0, baseOffset: 10);
-
             return CampaignWaveRule.ResolveWave(
-                _campaign, plan, wave, graph, MonsterCatalog.Default(),
-                _campaign.Meta.Heroes, StatCombatWeights.Default(), threatWeights, catalog,
+                _campaign, _dayPlan, _fixedWave, _dayGraph, MonsterCatalog.Default(),
+                _campaign.Meta.Heroes, StatCombatWeights.Default(), _dayThreatWeights, _classCatalog,
                 new ClassMatchup(new List<ClassMatchup.Entry>()), CaptureRule.Default(),
                 _campaign.Meta.DungeonLevel, goldResourceId, new SeededRandom(_waveSeed++));
         }
 
-        // "다음 날": 하루 경과 + 여관 내구도 자연감소(InnUpkeepRule.Decay). 메타(인과율/던전레벨)·런(pull카운터)은 보존.
-        private void OnNextDay()
+        // "하루": TimeController.Step(=CampaignDayRule.AdvanceDay) — 정비일이면 여관 인과율/골드 수급(gate-before-decay
+        // 포함), 웨이브일이면 실제 ResolveWave, 90일 초과 시 회귀대기. 옛 OnNextDay의 수동 day+1/Decay 로직을 대체한다.
+        private void OnStepDay()
         {
-            var m = _campaign.Meta;
-            var decayedInn = InnUpkeepRule.Decay(m.Inn);
-            var meta = new MetaState(m.LoopCount, m.Heroes, decayedInn, m.KarmaBank, m.DungeonLevel);
-            var r = _campaign.Run;
-            var run = new RunState(r.Day + 1, r.Resources, r.Captives, r.PullsThisLoop);
-            _campaign = new CampaignState(meta, run);
-            _lastAction = "다음 날: 여관 내구 감소(-1), 런 상태 유지";
+            var r = TimeController.Step(_campaign, _dayCtx, _rng);
+            ApplyAdvance(r);
             Refresh();
+        }
+
+        // "다음 웨이브까지": TimeController.SkipToNextWave — 정비 구간만 전진하고 웨이브 전날(9일차)에서 멈춘다.
+        // 스킵 자체는 웨이브를 해소하지 않으므로 회귀 여지가 없다(9일차 이후엔 정비 페이즈가 아니므로 루프가 멈춤).
+        private void OnSkipToNextWave()
+        {
+            var r = TimeController.SkipToNextWave(_campaign, _dayCtx, _rng);
+            _campaign = r.Campaign;
+            _lastAction = $"다음 웨이브까지 스킵: {r.DaysAdvanced}일 진행 → 일차 {_campaign.Run.Day}";
+            Refresh();
+        }
+
+        // AdvanceResult 처리: 회귀 대기면 LoopEngine.StartNewLoop로 새 회차 시작, 아니면 결과 캠페인을 그대로 반영.
+        private void ApplyAdvance(AdvanceResult r)
+        {
+            if (r.RegressPending)
+            {
+                _campaign = _loop.StartNewLoop(r.Campaign);
+                _lastAction = $"회귀: 90일 경과 → 새 회차 {_campaign.Meta.LoopCount} 시작(런 리셋, 메타 유지)";
+                return;
+            }
+            _campaign = r.Campaign;
+            _lastAction = r.WaveResolved
+                ? $"하루 경과(일차 {_campaign.Run.Day}, 웨이브): 처치 {r.Wave.Combat.Killed.Count} · 포획 {r.Wave.Combat.Captured.Count} · 약탈 +{r.Wave.GoldGained}골드"
+                : $"하루 경과(일차 {_campaign.Run.Day}, 정비): 여관 수급 반영";
+        }
+
+        // 빠른재생: 표시 계층(Unity) 전용 틱 — 코어는 속도/Time.deltaTime을 전혀 모른다(Core/Sim/Time에 절대 넣지 않음).
+        private void Update()
+        {
+            if (!_fastForward) return;
+            _ffAccum += Time.deltaTime;
+            if (_ffAccum < FfInterval) return;
+            _ffAccum = 0f;
+            var r = TimeController.Step(_campaign, _dayCtx, _rng);
+            ApplyAdvance(r);
+            // 웨이브 해소·회귀 시 자동 정지(육안으로 결과를 확인할 수 있게).
+            if (r.WaveResolved || r.RegressPending) SetFastForward(false);
+            Refresh();
+        }
+
+        private void OnToggleFastForward()
+        {
+            SetFastForward(!_fastForward);
+        }
+
+        private void SetFastForward(bool value)
+        {
+            _fastForward = value;
+            _ffAccum = 0f;
+            if (_ffLabel != null) _ffLabel.text = _fastForward ? "빠른재생: 켜짐" : "빠른재생: 꺼짐";
         }
 
         // "새 회차(회귀)": LoopEngine.StartNewLoop. 런(골드/마석/포로/pull카운터) 리셋 + 메타(인과율bank·주인공스탯·던전레벨·여관) 유지 확인용.
@@ -314,6 +397,12 @@ namespace VNEngine.Unity
               .Append(" · 일차 ").Append(run.Day)
               .Append(" · 던전 Lv ").Append(meta.DungeonLevel)
               .Append(" · 가챠 pull(이번회차) ").Append(run.PullsThisLoop).Append('\n');
+
+            string phase = TimeQuery.GetPhase(run.Day) == DayPhase.Wave ? "웨이브" : "정비";
+            int untilWave = TimeQuery.DaysUntilNextWave(run.Day);
+            sb.Append("페이즈 ").Append(phase)
+              .Append(" · 다음 웨이브까지 ").Append(untilWave).Append('일')
+              .Append(" · 세이브일 ").Append(TimeQuery.IsSaveDay(run.Day) ? "O" : "-").Append('\n');
 
             sb.Append("자원: ");
             bool first = true;
