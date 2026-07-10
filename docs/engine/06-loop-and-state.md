@@ -64,6 +64,15 @@
 > 상세: [07 디펜스 전투](07-defense-combat.md) §5·§6·§7·§9.
 > 스펙: `docs/superpowers/plans/2026-07-09-vn-engine-07c-economy-wiring.md`.
 
+> **착수 상태(2026-07-09, 시간구조)**: 90일=9주기×10일 진행 커널이 신설됨 — `Day`는 이 문서 §1.1 그대로
+> **런 소속**(기존 `RunState.Day` 재사용, 신규 `TimeState` 없음, 회차 리셋)이고 `MetaState`는 무변경. `Core/Sim/Time`
+> 신설: `TimeQuery`(페이즈/웨이브일/세이브일 순수 질의) · `MaintenanceRule`(정비일 여관틱) · `CampaignDayRule`
+> (`AdvanceDay` 하루 전이 코어) · `DayContext`(웨이브 해결용 설정 번들) · `AdvanceResult`(전이 결과) ·
+> `TimeController`(`Step`/`SkipToNextWave`/`SkipToDay` 진행 모듈, 스킵=정산 방식). 속도/스킵 개념은 코어에 없고
+> Unity `SimController`의 "빠른재생" 표시 계층에서만 다룬다.
+> 상세: [07 디펜스 전투](07-defense-combat.md) §11 시간구조 콜아웃.
+> 스펙: `docs/superpowers/plans/2026-07-09-vn-engine-time-structure.md`.
+
 관련: [03 아키텍처](03-architecture-and-execution.md) · [04 세이브/로드](04-save-load-format.md) · [05 시뮬 커널](05-simulation-kernel.md)
 
 ---
@@ -143,6 +152,11 @@ public sealed class CampaignState {
 ## 3. 회귀 (Regression) — 이 게임의 1급 연산
 
 회귀는 이 커널에서 가장 중요한 전이다. **런을 버리고, 메타를 갱신하며, 새 런을 시작**한다.
+
+> **현행 회귀(시간구조, 2026-07-09)**: `LoopEngine.StartNewLoop`가 실제 회귀 수행자 — `CampaignDayRule.AdvanceDay`는
+> `Day>90`이면 처리 없이 `AdvanceResult.RegressPending=true`만 반환하고, caller(Unity `SimController`)가 이 신호를
+> 보고 `LoopEngine.StartNewLoop`를 호출한다. 아래 `Regress(state, input)` 시그니처·계승/편지/진실플래그 내용 로직은
+> 여전히 미구현(위 착수 상태 노트 참고) — 현행은 "런 리셋+메타 유지"만 수행하는 얇은 버전.
 
 ```csharp
 CampaignState Regress(CampaignState s, RegressionInput input)

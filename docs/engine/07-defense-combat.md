@@ -586,6 +586,31 @@ SpendPriority    { 내구도>레벨업>여관투자>몹강화>가챠 }
 - **경제 영향(밸런싱 주의)**: 시뮬은 제국군9회만 셈. 실제는 제국군9 + 모험가난입α라 **웨이브 총량이 더 많음** →
   회차당 수입·전투빈도가 시뮬보다 높음. 모험가 난입 확률이 회차당 총수입을 좌우하므로 튜닝 시 핵심 변수.
 
+> **구현(시간구조, 2026-07-09):** 위 90일=9주기×10일 구조가 `Core/Sim/Time/`에 순수함수로 구현됨(속도/스킵
+> 개념은 코어에 없음 — Unity 표시 계층에서만 다룸).
+> - **순수 질의** `TimeQuery`(`MaxDay=90`, `WaveInterval=10`, `Cycles=9`, `SaveDayInCycle=9`) — `GetPhase(day)`
+>   (10의 배수→`DayPhase.Wave`, 아니면 `Maintenance`), `IsWaveDay`/`IsSaveDay`(각 주기 9일차=웨이브 전날)/
+>   `DaysUntilNextWave`.
+> - **하루 전이 코어** `CampaignDayRule.AdvanceDay(campaign, ctx, rng)` — 단일 순수함수. `Day+1`로 진행해
+>   웨이브날(10·20…90)이면 `CampaignWaveRule.ResolveWave`(§7.2), 정비날이면 `MaintenanceRule.ApplyInnTick`
+>   (§7.2 07-C 콜아웃과 동일한 게이트-전-Decay 순서로 여관 인과율/골드 수급)을 호출. `Day>90`이면 아무 처리 없이
+>   `AdvanceResult.RegressPending=true`만 반환 — 실제 회귀(`LoopEngine.StartNewLoop`)는 caller(Unity 계층) 책임이고
+>   코어는 회귀를 스스로 실행하지 않는다.
+> - **진행 컨트롤러(모듈)** `TimeController`(`Step`/`SkipToNextWave`/`SkipToDay`) — `Step`은 `AdvanceDay` 그대로
+>   위임. `SkipToNextWave`/`SkipToDay`는 다음 날의 페이즈가 `Maintenance`인 동안만 `AdvanceDay`를 반복 호출하는
+>   **정산 방식**(스킵=하루씩 진행한 것과 동일한 결과, 별도 배속 로직 없음) — 그래서 항상 웨이브 전날(9·19…89일)
+>   에서 멈추고, 웨이브 자체는 반드시 `Step` 한 번으로만 해소된다.
+> - `Unity/Sim/SimController.cs`의 "빠른재생"(FastForward) 토글은 `Step`을 매 틱 반복 호출하는 **표시 계층
+>   루프**일 뿐이며, `WaveResolved`나 `RegressPending`이 뜨면 자동으로 꺼진다 — 배속은 코어 개념이 아니다.
+> - **미룬/훅**: 정비일 모험가 확률난입(위 "확률 ~40%/주기")은 아직 미구현 — `AdvanceDay`는 정비날에 항상
+>   `MaintenanceRule.ApplyInnTick`만 호출하고 모험가 웨이브를 끼워넣지 않는다. 코어붕괴 조기회귀 조건도 현재는
+>   `Day>90` 단일 조건뿐 — "코어가 먼저 무너지면 90일 전에도 회귀" 같은 조기회귀 훅은 후속 스코프.
+> - **결정 기록**: `Day`는 신규 `TimeState` 타입을 만들지 않고 기존 `RunState.Day`를 그대로 재사용(06 §1.1,
+>   회차마다 리셋). `MaintenanceRule.ApplyInnTick`(정비날)과 `CampaignWaveRule.ResolveWave`(웨이브날, §7.2)가
+>   각자 독립적으로 `InnIncomeRule.Compute`/`InnUpkeepRule.Decay`를 호출해 여관 수급을 처리한다 — 두 경로의
+>   "여관 스텝" 로직 통합은 후속으로 미룸.
+> 스펙: `docs/superpowers/plans/2026-07-09-vn-engine-time-structure.md`.
+
 ---
 
 ## 12. 주인공 (전투 유닛 + 8스탯)
