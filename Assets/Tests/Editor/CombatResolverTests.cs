@@ -99,12 +99,13 @@ namespace VNEngine.Tests
             var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, count: 1);
-            // 압도적 화력의 방어몹(즉사 보장) + 함정방.
-            var trapRoom = new RoomNode(new List<Attacker> { new Attacker(UnitClassIds.Tank, hp: 999, atk: 100000, def: 10, canBeCaptured: false) }, hasTrap: true);
+            // 함정방 + 포획형 방어몹(즉사 화력). 함정 AND 포획몹 → 포획.
+            var succ = new Attacker(MonsterIds.Succubus, hp: 999, atk: 100000, def: 10, canBeCaptured: false, isCapturingMonster: true);
+            var trapRoom = new RoomNode(new List<Attacker> { succ }, hasTrap: true);
             var rooms = new List<RoomNode> { trapRoom };
-            var threatWeights = FixedThreat(10); // 침입자 hp/def <= 15 로 고정 -> 100000 데미지에 항상 즉사.
+            var threatWeights = FixedThreat(10);
 
-            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, RoomGraph.Linear(rooms, TrapConfig.None()), Stats(), StatCombatWeights.Default(), threatWeights, catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(2));
 
             Assert.AreEqual(1, result.Captured.Count);
             Assert.AreEqual(0, result.Killed.Count);
@@ -112,20 +113,21 @@ namespace VNEngine.Tests
         }
 
         [Test]
-        public void CapturingMonsterFinishCapturesEvenWithoutTrap()
+        public void CapturingMonsterWithoutTrapDoesNotCapture()
         {
             var capturable = ClassOf("Cap", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, 1);
-            // 함정 없음, 방어몹은 포획형(서큐버스류) + 즉사 화력.
+            // 함정 없음 + 포획형 방어몹. 새 규칙: 함정 AND 포획몹이어야 포획 → 함정 없으면 처치.
+            // (배치검증이라면 애초에 포획몹은 일반방에 못 두지만, 여기선 resolver 단독 거동을 직접 검증.)
             var succ = new Attacker(MonsterIds.Succubus, 999, 100000, 10, false, isCapturingMonster: true);
-            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: false) });
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: false) }, TrapConfig.None());
 
             var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
                 FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(5));
 
-            Assert.AreEqual(1, result.Captured.Count, "포획형 몹의 마지막 타격 → 함정 없이도 포획");
-            Assert.AreEqual(0, result.Killed.Count);
+            Assert.AreEqual(0, result.Captured.Count, "함정방이 아니면 포획몹도 포획 못 함");
+            Assert.AreEqual(1, result.Killed.Count);
         }
 
         [Test]
