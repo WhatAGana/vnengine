@@ -86,7 +86,7 @@ namespace VNEngine
                 for (var i = 0; i < entry.Count; i++)
                 {
                     var attacker = AttackerFactory.Create(cls, threatBase, entry.IsNamed, rng);
-                    var outcome = ResolveIntruder(attacker, graph.Path, heroProfile, heroHitParams, matchup, captureRule, rng);
+                    var outcome = ResolveIntruder(attacker, graph.Path, graph.Trap, heroProfile, heroHitParams, matchup, captureRule, rng);
 
                     switch (outcome.Result)
                     {
@@ -126,10 +126,12 @@ namespace VNEngine
         }
 
         // 침입자 1체가 방1 -> ... -> 코어앞1칸(주인공)까지 선형 통과하는 과정을 해결한다.
-        // HP 감소는 로컬 변수(hp)로만 추적 — 인자로 받은 attacker(및 rooms) 는 절대 변경하지 않는다.
+        // 함정방은 진입 시(방어몹 요격 전) trap.Damage 를 입힌다 — 함정 단독 처치는 Trap-only 트리거라 포획 없음.
+        // HP 감소는 로컬 변수(hp)로만 추적 — 인자로 받은 attacker(및 rooms) 는 절대 변경하지 않는다. 함정 데미지는 rng 미사용(결정론 유지).
         private static IntruderResolution ResolveIntruder(
             Attacker attacker,
             IReadOnlyList<RoomNode> rooms,
+            TrapConfig trap,
             HeroCombatProfile heroProfile,
             HitParams heroHitParams,
             ClassMatchup matchup,
@@ -140,6 +142,19 @@ namespace VNEngine
 
             foreach (var room in rooms)
             {
+                // 함정 데미지(방어몹 요격 전, 방당 1회). 함정 단독 처치 = Trap-only → 포획 판정에 위임(조합규칙상 처치).
+                if (room.HasTrap && trap.Damage > 0)
+                {
+                    hp -= trap.Damage;
+                    if (hp <= 0)
+                    {
+                        var trapCaptured = captureRule.ShouldCapture(attacker.CanBeCaptured, new CaptureContext(CaptureTrigger.Trap));
+                        return new IntruderResolution(
+                            trapCaptured ? IntruderOutcome.Captured : IntruderOutcome.Killed,
+                            attacker);
+                    }
+                }
+
                 foreach (var defender in room.Defenders)
                 {
                     var pct = matchup.Multiplier(defender.ClassId, attacker.ClassId);

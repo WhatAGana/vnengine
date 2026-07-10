@@ -146,6 +146,57 @@ namespace VNEngine.Tests
             Assert.AreEqual(0, result.Captured.Count);
         }
 
+        [Test]
+        public void TrapDamageAloneKillsWeakIntruderWithoutCapture()
+        {
+            // 함정방(포획몹 없음, 방어몹 0) + 포획가능 침입자. 함정 데미지만으로 즉사 → 처치(포획 아님).
+            var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
+            var catalog = new List<UnitClassDef> { capturable };
+            var wave = OneWave(capturable.Id, count: 1);
+            // 가시함정 lvl1 = 15 데미지. threatBase=10 → hp≈5..15 → 함정에 즉사.
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker>(), hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(10), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(7));
+
+            Assert.AreEqual(1, result.Killed.Count, "함정 단독 처치 = 데미지만, 포획 없음(초회차 안전판)");
+            Assert.AreEqual(0, result.Captured.Count);
+            Assert.IsFalse(result.CoreHit);
+        }
+
+        [Test]
+        public void TrapDamageDoesNotKillStrongIntruderThenPassesThrough()
+        {
+            // 함정 15 < 침입자 hp(threatBase=50 → 45..55). 방어몹 없음 → 함정만으론 못 죽이고 무력한 주인공도 못 막음 → 코어 도달.
+            var grunt = ClassOf("Grunt", 100, 100, 100, canBeCaptured: false);
+            var catalog = new List<UnitClassDef> { grunt };
+            var wave = OneWave(grunt.Id, count: 1);
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker>(), hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(50), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(8));
+
+            Assert.IsTrue(result.CoreHit, "함정 데미지가 hp보다 작으면 통과");
+            Assert.AreEqual(0, result.Killed.Count);
+        }
+
+        [Test]
+        public void StrongIntruderSurvivesTrapThenCapturedByCapturingMonster()
+        {
+            // 함정방 + 포획몹. 함정 15로는 못 죽는 강한 침입자(threatBase=50)를 포획몹이 격퇴 → 함정 AND 포획몹 → 포획.
+            var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
+            var catalog = new List<UnitClassDef> { capturable };
+            var wave = OneWave(capturable.Id, count: 1);
+            var succ = new Attacker(MonsterIds.Succubus, hp: 999, atk: 100000, def: 10, canBeCaptured: false, isCapturingMonster: true);
+            var graph = RoomGraph.Linear(new List<RoomNode> { new RoomNode(new List<Attacker> { succ }, hasTrap: true) }, TrapConfig.Default());
+
+            var result = CombatResolver.ResolveWave(EmptyRun(), wave, graph, Stats(), StatCombatWeights.Default(),
+                FixedThreat(50), catalog, NeutralMatchup(), CaptureRule.Default(), dungeonLevel: 1, loopCount: 1, rng: new SeededRandom(6));
+
+            Assert.AreEqual(1, result.Captured.Count);
+            Assert.AreEqual(0, result.Killed.Count);
+        }
+
         // ---- 가중 전투력 경유(A1 권고): raw 스탯합이 아니라 HeroCombatProfile 파생치를 씀을 end-to-end 로 검증 ----
 
         [Test]

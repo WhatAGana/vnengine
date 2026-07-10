@@ -95,11 +95,11 @@ namespace VNEngine.Tests
         [Test]
         public void ResolveWave_CapturesCreditHalfLootPlusKarma()
         {
-            // 고위마족 방어몹(atk130) + 함정방 -> 전원 포획(포획가능 침입자, threatBase=10 -> hp~5..15로 항상 즉사).
+            // 고위마족 방어몹(atk130) + 함정방 -> 전원 포획(포획가능 침입자, threatBase=50 -> hp~45..55, 함정15 생존 후 방어몹에 즉사).
             var capturable = ClassOf("Capturable", 100, 100, 100, canBeCaptured: true);
             var catalog = new List<UnitClassDef> { capturable };
             var wave = OneWave(capturable.Id, count: 3);
-            var threatWeights = FixedThreat(10); // threatBase=10 고정 -> Isqrt(10)=3.
+            var threatWeights = FixedThreat(50);
             var campaign = Campaign();
 
             var outcome = CampaignWaveRule.ResolveWave(
@@ -109,8 +109,8 @@ namespace VNEngine.Tests
 
             Assert.AreEqual(3, outcome.Combat.Captured.Count);
             Assert.AreEqual(0, outcome.Combat.Killed.Count);
-            var expectedGold = 3 * LootRule.LootGold(10, true);
-            var expectedKarma = 3 * LootRule.CaptureKarma(10);
+            var expectedGold = 3 * LootRule.LootGold(50, true);
+            var expectedKarma = 3 * LootRule.CaptureKarma(50);
             Assert.AreEqual(expectedGold, outcome.GoldGained);
             Assert.AreEqual(expectedKarma, outcome.CaptureKarmaGained);
             Assert.AreEqual(expectedKarma, outcome.Campaign.Meta.KarmaBank - campaign.Meta.KarmaBank, "KarmaBank가 정확히 CaptureKarmaGained 만큼 증가");
@@ -126,7 +126,7 @@ namespace VNEngine.Tests
 
             var outcome = CampaignWaveRule.ResolveWave(
                 campaign, HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                Stats(), StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                Stats(), StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(3));
 
             Assert.AreEqual(outcome.Combat.Captured.Count, outcome.Campaign.Run.Captives.Count);
@@ -175,11 +175,11 @@ namespace VNEngine.Tests
 
             var a = CampaignWaveRule.ResolveWave(
                 Campaign(), HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                hero, StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(777));
             var b = CampaignWaveRule.ResolveWave(
                 Campaign(), HeroPlusTrapDefenderPlan(), wave, ThreeRoomsWithTrapAtR0(), MonsterCat(),
-                hero, StatCombatWeights.Default(), FixedThreat(10), catalog, NeutralMatchup(),
+                hero, StatCombatWeights.Default(), FixedThreat(50), catalog, NeutralMatchup(),
                 CaptureRule.Default(), dungeonLevel: 1, goldResourceId: "gold", rng: new SeededRandom(777));
 
             Assert.AreEqual(a.GoldGained, b.GoldGained);
